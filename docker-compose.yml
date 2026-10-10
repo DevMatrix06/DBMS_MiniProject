@@ -1,0 +1,17 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: devmatch-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-devmatch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-devmatch}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # .sql files here run in alphabetical order on FIRST start only
+      - ./db:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  pgdata:
