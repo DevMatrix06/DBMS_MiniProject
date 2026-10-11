@@ -16,6 +16,8 @@ Work on your own branch and make your own commits, so the history shows individu
 
 **Next.js note:** this is Next 16 and differs from older versions. Read the relevant file in `node_modules/next/dist/docs/` before writing a page or route. For example, `cookies()` is async and `export const dynamic = ...` is not allowed in route files here.
 
+**Pages that read the session or DB (Next 16 `cacheComponents`):** put that code in an `async` component and wrap it in `<Suspense fallback={...}>`, otherwise the dev overlay shows a "Blocking Route" error. See `app/dashboard/page.tsx` or `app/contributor/feed/page.tsx` for the pattern. Shared styles are in `app/globals.css` (classes like `container`, `card`, `btn`, `form`, `tag`).
+
 ## Helpers you can use
 | Need | Use |
 |---|---|

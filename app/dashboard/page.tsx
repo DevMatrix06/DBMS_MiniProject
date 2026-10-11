@@ -1,8 +1,8 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { pool } from "@/lib/db";
-import LogoutButton from "./LogoutButton";
 
 // Reads the session cookie and the DB, so it must render at request time inside Suspense.
 async function CurrentUser() {
@@ -17,19 +17,33 @@ async function CurrentUser() {
 
   return (
     <>
-      <p>
+      <p className="muted">
         Signed in as {rows[0].email} ({rows[0].role})
       </p>
-      <LogoutButton />
+      {rows[0].role === "contributor" ? (
+        <div className="row">
+          <Link href="/contributor/feed" className="btn btn-primary">
+            Recommended issues
+          </Link>
+          <Link href="/contributor/search" className="btn">
+            Search issues
+          </Link>
+          <Link href="/contributor/profile" className="btn">
+            Edit profile
+          </Link>
+        </div>
+      ) : (
+        <p className="muted">Maintainer and admin tools are coming soon.</p>
+      )}
     </>
   );
 }
 
 export default function Dashboard() {
   return (
-    <main style={{ padding: "2rem", maxWidth: 720, margin: "0 auto" }}>
+    <main className="container">
       <h1>Dashboard</h1>
-      <Suspense fallback={<p>Loading...</p>}>
+      <Suspense fallback={<p className="muted">Loading...</p>}>
         <CurrentUser />
       </Suspense>
     </main>

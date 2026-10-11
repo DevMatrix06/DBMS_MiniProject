@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -17,7 +18,8 @@ export default function LoginPage() {
       body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
     });
     if (res.ok) {
-      router.push("/dashboard");
+      const { role } = await res.json();
+      router.push(role === "contributor" ? "/contributor/feed" : "/dashboard");
       router.refresh();
     } else {
       setError((await res.json()).error ?? "Login failed");
@@ -25,16 +27,18 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ padding: "2rem", maxWidth: 380, margin: "0 auto" }}>
+    <main className="container" style={{ maxWidth: 420 }}>
       <h1>Log in</h1>
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: "0.75rem" }}>
+      <form onSubmit={onSubmit} className="form">
         <input name="email" type="email" placeholder="Email" required />
         <input name="password" type="password" placeholder="Password" required />
-        <button type="submit">Log in</button>
-        {error && <p role="alert" style={{ color: "crimson" }}>{error}</p>}
+        <button type="submit" className="btn-primary">
+          Log in
+        </button>
+        {error && <p role="alert" className="error">{error}</p>}
       </form>
-      <p>
-        No account? <a href="/signup">Sign up</a>
+      <p className="muted" style={{ marginTop: "1rem" }}>
+        No account? <Link href="/signup">Sign up</Link>
       </p>
     </main>
   );
