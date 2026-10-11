@@ -14,7 +14,8 @@ DBMS Level 3 project: PostgreSQL + pgvector, Next.js (Route Handlers).
 3. `docker compose up -d` creates the DB and runs `db/*.sql` on first start.
    To re-run the SQL from scratch: `docker compose down -v` then `docker compose up -d`.
 4. `npm install`
-5. `npm run dev` and open http://localhost:3000 (DB check: `/api/health`).
+5. Put your Gemini key in `EMBEDDING_API_KEY` (.env), then `npm run seed` to load demo repos, issues and contributors with embeddings (`npm run seed -- --reset` to redo). Demo password for all seeded users: `password123`.
+6. `npm run dev` and open http://localhost:3000 (DB check: `/api/health`).
 
 ## Layout
 - `db/` schema, seed and logic (triggers/functions) SQL
