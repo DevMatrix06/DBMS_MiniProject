@@ -12,17 +12,22 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     const form = new FormData(e.currentTarget);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
-    });
-    if (res.ok) {
-      const { role } = await res.json();
-      router.push(role === "contributor" ? "/contributor/feed" : "/dashboard");
-      router.refresh();
-    } else {
-      setError((await res.json()).error ?? "Login failed");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
+      });
+      if (res.ok) {
+        const { role } = await res.json();
+        router.push(role === "contributor" ? "/contributor/feed" : "/dashboard");
+        router.refresh();
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      setError(data?.error ?? `Login failed (HTTP ${res.status})`);
+    } catch {
+      setError("Cannot reach the server. Is the dev server running?");
     }
   }
 

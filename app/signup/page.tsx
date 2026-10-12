@@ -13,23 +13,28 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
     const f = new FormData(e.currentTarget);
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        role,
-        email: f.get("email"),
-        password: f.get("password"),
-        displayName: f.get("displayName"),
-        githubUsername: f.get("githubUsername"),
-      }),
-    });
-    if (res.ok) {
-      // New contributors need skills before matching works, so send them to the profile.
-      router.push(role === "contributor" ? "/contributor/profile" : "/dashboard");
-      router.refresh();
-    } else {
-      setError((await res.json()).error ?? "Signup failed");
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role,
+          email: f.get("email"),
+          password: f.get("password"),
+          displayName: f.get("displayName"),
+          githubUsername: f.get("githubUsername"),
+        }),
+      });
+      if (res.ok) {
+        // New contributors need skills before matching works, so send them to the profile.
+        router.push(role === "contributor" ? "/contributor/profile" : "/dashboard");
+        router.refresh();
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      setError(data?.error ?? `Signup failed (HTTP ${res.status})`);
+    } catch {
+      setError("Cannot reach the server. Is the dev server running?");
     }
   }
 
