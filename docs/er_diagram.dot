@@ -1,0 +1,88 @@
+digraph ER {
+  graph [rankdir=LR, fontname="Helvetica", nodesep=0.5, ranksep=1.1, pad=0.3, dpi=150, labelloc=t, label="DevMatch - Entity Relationship Diagram (PostgreSQL + pgvector)"];
+  node  [shape=plain, fontname="Helvetica", fontsize=11];
+  edge  [fontname="Helvetica", fontsize=10, arrowhead=crow, arrowtail=tee, dir=both];
+
+  users [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#2563eb"><FONT COLOR="white"><B>users</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> user_id</TD></TR>
+    <TR><TD ALIGN="LEFT">email (UNIQUE)</TD></TR>
+    <TR><TD ALIGN="LEFT">password_hash</TD></TR>
+    <TR><TD ALIGN="LEFT">role (contributor|maintainer|admin)</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at</TD></TR></TABLE>>];
+
+  contributors [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#2563eb"><FONT COLOR="white"><B>contributors</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> contributor_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>FK</B> user_id (UNIQUE)</TD></TR>
+    <TR><TD ALIGN="LEFT">display_name</TD></TR>
+    <TR><TD ALIGN="LEFT">github_username (UNIQUE)</TD></TR>
+    <TR><TD ALIGN="LEFT">bio</TD></TR>
+    <TR><TD ALIGN="LEFT">experience_level</TD></TR>
+    <TR><TD ALIGN="LEFT">profile_embedding vector(768)</TD></TR></TABLE>>];
+
+  skills [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#16a34a"><FONT COLOR="white"><B>skills</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> skill_id</TD></TR>
+    <TR><TD ALIGN="LEFT">name (UNIQUE)</TD></TR>
+    <TR><TD ALIGN="LEFT">category</TD></TR></TABLE>>];
+
+  contributor_skills [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#9333ea"><FONT COLOR="white"><B>contributor_skills</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK, FK</B> contributor_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK, FK</B> skill_id</TD></TR>
+    <TR><TD ALIGN="LEFT">proficiency (1-5)</TD></TR></TABLE>>];
+
+  repositories [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#2563eb"><FONT COLOR="white"><B>repositories</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> repo_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>FK</B> owner_id (maintainer)</TD></TR>
+    <TR><TD ALIGN="LEFT">full_name (UNIQUE)</TD></TR>
+    <TR><TD ALIGN="LEFT">description</TD></TR>
+    <TR><TD ALIGN="LEFT">primary_language</TD></TR>
+    <TR><TD ALIGN="LEFT">stars</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at</TD></TR></TABLE>>];
+
+  issues [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#2563eb"><FONT COLOR="white"><B>issues</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> issue_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>FK</B> repo_id</TD></TR>
+    <TR><TD ALIGN="LEFT">title, body</TD></TR>
+    <TR><TD ALIGN="LEFT">difficulty (easy|medium|hard)</TD></TR>
+    <TR><TD ALIGN="LEFT">status (open|claimed|closed)</TD></TR>
+    <TR><TD ALIGN="LEFT">created_at</TD></TR>
+    <TR><TD ALIGN="LEFT">embedding vector(768)</TD></TR>
+    <TR><TD ALIGN="LEFT">search_tsv tsvector (generated)</TD></TR></TABLE>>];
+
+  issue_skills [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#9333ea"><FONT COLOR="white"><B>issue_skills</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK, FK</B> issue_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK, FK</B> skill_id</TD></TR></TABLE>>];
+
+  applications [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#ea580c"><FONT COLOR="white"><B>applications</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> application_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>FK</B> issue_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>FK</B> contributor_id</TD></TR>
+    <TR><TD ALIGN="LEFT">status (pending|accepted|rejected|withdrawn)</TD></TR>
+    <TR><TD ALIGN="LEFT">applied_at</TD></TR>
+    <TR><TD ALIGN="LEFT">UNIQUE (issue_id, contributor_id)</TD></TR></TABLE>>];
+
+  issue_status_log [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#64748b"><FONT COLOR="white"><B>issue_status_log</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> log_id</TD></TR>
+    <TR><TD ALIGN="LEFT"><B>FK</B> issue_id</TD></TR>
+    <TR><TD ALIGN="LEFT">old_status, new_status</TD></TR>
+    <TR><TD ALIGN="LEFT">changed_at</TD></TR></TABLE>>];
+
+  users -> contributors        [label="1 : 0..1  (role = contributor)", arrowhead=tee, arrowtail=tee];
+  users -> repositories        [label="owns  1 : N"];
+  repositories -> issues       [label="has  1 : N"];
+  contributors -> contributor_skills [label="1 : N"];
+  skills -> contributor_skills [label="1 : N"];
+  issues -> issue_skills       [label="1 : N"];
+  skills -> issue_skills       [label="1 : N"];
+  issues -> applications       [label="receives  1 : N"];
+  contributors -> applications [label="submits  1 : N"];
+  issues -> issue_status_log   [label="audited by (trigger)  1 : N"];
+}
