@@ -12,9 +12,9 @@ npm run dev              # app on http://localhost:3000
 npm test                 # runs tests/api.test.mts with Node's built-in test runner
 ```
 
-Three tests call the Gemini embeddings API (profile save, issue creation, semantic search).
+A few tests call the Gemini embeddings API (profile save, issue creation, semantic and hybrid search).
 
-## Result: 30 passed, 0 failed (about 13 s)
+## Result: 33 passed, 0 failed (about 15 s)
 
 | ID | Test case | What it proves |
 |---|---|---|
@@ -25,6 +25,7 @@ Three tests call the Gemini embeddings API (profile save, issue creation, semant
 | A5 | Malformed email rejected by the database (400) | CHECK constraint on `users.email` |
 | A6 | Wrong password gives 401 with the same message as an unknown email | No account enumeration |
 | A7 | `/me` without a session is 401; logout clears the session | Session handling |
+| A8 | Five wrong passwords lock the email: the 6th attempt, even with the right password, gets 429 with a Retry-After header; other accounts and unknown emails behave the same way | Brute-force protection (`login_attempts` table) |
 | R1 | Contributor calling a maintainer API gets 403 | Role-based access control |
 | R2 | Maintainer cannot apply to issues (403) | Role-based access control |
 | R3 | Non-admin gets 403 on admin stats; admin gets the views' data | Role-based access control, views |
@@ -43,6 +44,8 @@ Three tests call the Gemini embeddings API (profile save, issue creation, semant
 | M1 | Non-owner cannot accept (404); owner accepts, issue becomes `claimed`, other applicants `rejected`, audit row `open -> claimed` written, second accept 409, late application 409 | Transaction, row lock, trigger `trg_issue_status_log` |
 | M2 | Two simultaneous accepts on one issue: exactly one 200 and one 409 | `SELECT ... FOR UPDATE` (race condition) |
 | M3 | Maintainer creates an issue (embedded, 768 dims); duplicate title 409; other maintainer 404; contributor 403 | Transaction with embedding, ownership |
+| H1 | Hybrid search puts an issue found by both keyword and semantic search first; results are ordered by fused score; semantic-only matches still appear | `hybrid_search()` function, Reciprocal Rank Fusion, GIN + HNSW indexes |
+| CL1 | Closing an issue rejects its pending applications but keeps an accepted one; audit log shows `claimed` then `closed` | Trigger `trg_reject_pending_on_close` |
 | D1 | Invalid difficulty, too-short title, proficiency 6 rejected by the database | CHECK constraints |
 | D2 | Application for a missing issue and a duplicate application rejected | FOREIGN KEY, UNIQUE |
 | D3 | Raw SQL insert of an application for a closed issue is rejected | Trigger works even when the API is bypassed |

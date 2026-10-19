@@ -21,7 +21,7 @@ type Json = any;
 
 class Client {
   cookie = "";
-  async req(method: string, path: string, body?: unknown): Promise<{ status: number; json: Json }> {
+  async req(method: string, path: string, body?: unknown): Promise<{ status: number; json: Json; headers: Headers }> {
     const res = await fetch(BASE + path, {
       method,
       headers: { "Content-Type": "application/json", ...(this.cookie ? { cookie: this.cookie } : {}) },
@@ -39,7 +39,7 @@ class Client {
     } catch {
       /* not JSON */
     }
-    return { status: res.status, json };
+    return { status: res.status, json, headers: res.headers };
   }
 }
 
@@ -98,6 +98,7 @@ before(async () => {
 
 after(async () => {
   // Users cascade to contributors, repositories, issues, applications and the status log.
+  await q("DELETE FROM login_attempts WHERE email LIKE $1", [`%@test-${TAG}.dev`]);
   await q("DELETE FROM users WHERE email LIKE $1", [`%@test-${TAG}.dev`]);
   await db.end();
 });
@@ -148,6 +149,23 @@ test("A7 /me without a session is 401, and logout clears the session", async () 
   await c.req("POST", "/api/auth/login", { email: email("contrib1"), password: PASSWORD });
   await c.req("POST", "/api/auth/logout");
   assert.equal((await c.req("GET", "/api/auth/me")).status, 401);
+});
+
+test("A8 login rate limit: 5 failures lock the email for a while, even with the right password (429)", async () => {
+  await signup("maintainer", "lockme");
+  const c = new Client();
+  for (let i = 0; i < 5; i++) {
+    const r = await c.req("POST", "/api/auth/login", { email: email("lockme"), password: `wrong-${i}` });
+    assert.equal(r.status, 401, `attempt ${i + 1}`);
+  }
+  const blocked = await c.req("POST", "/api/auth/login", { email: email("lockme"), password: PASSWORD });
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.headers.get("retry-after")) > 0);
+  // Other accounts are unaffected.
+  assert.equal((await new Client().req("POST", "/api/auth/login", { email: email("maint2"), password: PASSWORD })).status, 200);
+  // Unknown emails are limited too, so responses never reveal whether an account exists.
+  for (let i = 0; i < 5; i++) await c.req("POST", "/api/auth/login", { email: email("ghost"), password: "x" });
+  assert.equal((await c.req("POST", "/api/auth/login", { email: email("ghost"), password: "x" })).status, 429);
 });
 
 // ---------------------------------------------------------------- Role-based access
@@ -326,6 +344,42 @@ test("M3 maintainer creates an embedded issue; duplicate title is 409; contribut
   assert.equal((await m1.client.req("POST", "/api/maintainer/issues", { ...body, title: body.title.toUpperCase() })).status, 409);
   assert.equal((await m2.client.req("POST", "/api/maintainer/issues", body)).status, 404); // not their repo
   assert.equal((await c1.client.req("POST", "/api/maintainer/issues", body)).status, 403);
+});
+
+test("H1 hybrid search ranks an issue found by BOTH keyword and semantic search first", async () => {
+  const r = await c1.client.req("GET", "/api/search?q=graceful%20shutdown&mode=hybrid");
+  assert.equal(r.status, 200);
+  assert.ok(r.json.results.length > 0);
+  const top = r.json.results[0];
+  assert.match(top.title, new RegExp(TAG)); // the issue created in M3
+  assert.equal(top.in_semantic, true);
+  assert.equal(top.in_keyword, true);
+  const scores: number[] = r.json.results.map((x: Json) => x.score);
+  assert.deepEqual([...scores].sort((a, b) => b - a), scores, "results must be ordered by fused score");
+  // A query with no keyword overlap still works through the semantic side.
+  const sem = await c1.client.req("GET", "/api/search?q=make%20queries%20faster&mode=hybrid");
+  assert.ok(sem.json.results.some((x: Json) => x.in_semantic && !x.in_keyword));
+});
+
+test("CL1 closing an issue rejects its pending applications but keeps an accepted one", async () => {
+  // Issue with two pending applications, closed through the maintainer API.
+  const open = await newIssue();
+  await c1.client.req("POST", "/api/contributor/applications", { issueId: open });
+  await c2.client.req("POST", "/api/contributor/applications", { issueId: open });
+  const closeRes = await m1.client.req("PATCH", `/api/maintainer/issues/${open}`, { status: "closed" });
+  assert.equal(closeRes.status, 200, JSON.stringify(closeRes.json));
+  const after = await q("SELECT status FROM applications WHERE issue_id = $1", [open]);
+  assert.deepEqual(after.map((a) => a.status), ["rejected", "rejected"]);
+
+  // Issue that was claimed first: the accepted application survives the close.
+  const claimed = await newIssue();
+  await c1.client.req("POST", "/api/contributor/applications", { issueId: claimed });
+  const id = await appId(claimed, c1.contributorId);
+  assert.equal((await m1.client.req("POST", `/api/maintainer/applications/${id}/accept`)).status, 200);
+  assert.equal((await m1.client.req("PATCH", `/api/maintainer/issues/${claimed}`, { status: "closed" })).status, 200);
+  assert.equal((await q("SELECT status FROM applications WHERE application_id = $1", [id]))[0].status, "accepted");
+  const log = await q("SELECT new_status FROM issue_status_log WHERE issue_id = $1 ORDER BY log_id", [claimed]);
+  assert.deepEqual(log.map((l) => l.new_status), ["claimed", "closed"]);
 });
 
 // ---------------------------------------------------------------- Database-level integrity
