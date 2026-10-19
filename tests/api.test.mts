@@ -382,6 +382,117 @@ test("CL1 closing an issue rejects its pending applications but keeps an accepte
   assert.deepEqual(log.map((l) => l.new_status), ["claimed", "closed"]);
 });
 
+// ---------------------------------------------------------------- Filters
+test("F1 difficulty and skill filters narrow search results in every mode", async () => {
+  for (const mode of ["hybrid", "semantic"]) {
+    const easy = await c1.client.req("GET", `/api/search?q=${encodeURIComponent("improve the pipeline")}&mode=${mode}&difficulty=easy`);
+    assert.equal(easy.status, 200, `${mode}: ${JSON.stringify(easy.json)}`);
+    assert.ok(easy.json.results.length > 0, `${mode}: expected some easy issues`);
+    assert.ok(easy.json.results.every((r: Json) => r.difficulty === "easy"), `${mode}: non-easy result leaked through`);
+  }
+  for (const mode of ["hybrid", "semantic", "keyword"]) {
+    const res = await c1.client.req("GET", `/api/search?q=${encodeURIComponent("Go pipeline")}&mode=${mode}&skill=Go`);
+    assert.equal(res.status, 200);
+    for (const r of res.json.results as Json[]) {
+      const has = await q("SELECT 1 FROM issue_skills isk JOIN skills s ON s.skill_id = isk.skill_id WHERE isk.issue_id = $1 AND s.name = 'Go'", [r.issue_id]);
+      assert.equal(has.length, 1, `${mode}: issue ${r.issue_id} does not need Go`);
+    }
+  }
+  assert.equal((await c1.client.req("GET", "/api/search?q=pipeline&mode=hybrid&difficulty=extreme")).status, 400);
+  const none = await c1.client.req("GET", "/api/search?q=pipeline&mode=semantic&skill=NoSuchSkill");
+  assert.deepEqual(none.json.results, []);
+});
+
+test("F2 hybrid_search() applies the filters before ranking; /api/skills lists skills", async () => {
+  const rows = await q(
+    "SELECT h.title, i.difficulty FROM hybrid_search('database query', (SELECT embedding FROM issues WHERE embedding IS NOT NULL LIMIT 1), 10, 'hard', NULL) h JOIN issues i ON i.issue_id = h.issue_id"
+  );
+  assert.ok(rows.length > 0);
+  assert.ok(rows.every((r) => r.difficulty === "hard"));
+  const s = await c1.client.req("GET", "/api/skills");
+  assert.equal(s.status, 200);
+  assert.ok(s.json.skills.length >= 16);
+  assert.equal((await new Client().req("GET", "/api/skills")).status, 401);
+});
+
+// ---------------------------------------------------------------- Account: password and deletion
+test("PW1 change password: wrong current 403, weak new 400, success then old password stops working", async () => {
+  const u = await signup("maintainer", "pwuser");
+  assert.equal((await u.client.req("PUT", "/api/account/password", { currentPassword: "nope-nope", newPassword: "brand-new-pass" })).status, 403);
+  assert.equal((await u.client.req("PUT", "/api/account/password", { currentPassword: PASSWORD, newPassword: "short" })).status, 400);
+  assert.equal((await u.client.req("PUT", "/api/account/password", { currentPassword: PASSWORD, newPassword: PASSWORD })).status, 400);
+  assert.equal((await u.client.req("PUT", "/api/account/password", { currentPassword: PASSWORD, newPassword: "brand-new-pass" })).status, 200);
+  assert.equal((await new Client().req("POST", "/api/auth/login", { email: email("pwuser"), password: PASSWORD })).status, 401);
+  assert.equal((await new Client().req("POST", "/api/auth/login", { email: email("pwuser"), password: "brand-new-pass" })).status, 200);
+  assert.equal((await new Client().req("PUT", "/api/account/password", { currentPassword: PASSWORD, newPassword: "whatever-123" })).status, 401);
+});
+
+test("DEL1 deleting a contributor account needs the password and cascades to profile, skills, applications", async () => {
+  const u = await signup("contributor", "doomed");
+  const skill = (await q("SELECT skill_id FROM skills LIMIT 1"))[0].skill_id;
+  await q("INSERT INTO contributor_skills (contributor_id, skill_id, proficiency) VALUES ($1, $2, 3)", [u.contributorId, skill]);
+  const issue = await newIssue();
+  assert.equal((await u.client.req("POST", "/api/contributor/applications", { issueId: issue })).status, 201);
+
+  assert.equal((await u.client.req("DELETE", "/api/account", { password: "wrong-password" })).status, 403);
+  assert.equal((await q("SELECT 1 FROM users WHERE user_id = $1", [u.userId])).length, 1, "user must survive a wrong password");
+  assert.equal((await new Client().req("DELETE", "/api/account", { password: PASSWORD })).status, 401);
+
+  const ok = await u.client.req("DELETE", "/api/account", { password: PASSWORD });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal(ok.json.removed.applications, 1);
+  const checks: [string, string, number | null][] = [
+    ["users", "user_id", u.userId],
+    ["contributors", "contributor_id", u.contributorId],
+    ["contributor_skills", "contributor_id", u.contributorId],
+    ["applications", "contributor_id", u.contributorId],
+  ];
+  for (const [table, col, val] of checks) {
+    assert.equal((await q(`SELECT 1 FROM ${table} WHERE ${col} = $1`, [val])).length, 0, `${table} rows should be gone`);
+  }
+  assert.equal((await u.client.req("GET", "/api/auth/me")).status, 401, "session must be cleared");
+  assert.equal((await q("SELECT 1 FROM issues WHERE issue_id = $1", [issue])).length, 1, "the issue itself is not deleted");
+});
+
+test("DEL2 deleting a maintainer account removes their repositories, issues and applications, and spares others", async () => {
+  const mt = await signup("maintainer", "doomedm");
+  const [repo] = await q("INSERT INTO repositories (owner_id, full_name) VALUES ($1, $2) RETURNING repo_id", [mt.userId, `test/doomed-${TAG}`]);
+  const [iss] = await q("INSERT INTO issues (repo_id, title, body) VALUES ($1, $2, 'b') RETURNING issue_id", [repo.repo_id, `Doomed issue ${TAG}`]);
+  assert.equal((await c2.client.req("POST", "/api/contributor/applications", { issueId: iss.issue_id })).status, 201);
+
+  const ok = await mt.client.req("DELETE", "/api/account", { password: PASSWORD });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.json.removed, { applications: 1, repositories: 1 });
+  assert.equal((await q("SELECT 1 FROM repositories WHERE repo_id = $1", [repo.repo_id])).length, 0);
+  assert.equal((await q("SELECT 1 FROM issues WHERE issue_id = $1", [iss.issue_id])).length, 0);
+  assert.equal((await q("SELECT 1 FROM applications WHERE issue_id = $1", [iss.issue_id])).length, 0);
+  assert.equal((await q("SELECT 1 FROM contributors WHERE contributor_id = $1", [c2.contributorId])).length, 1, "the applicant account must survive");
+});
+
+test("DEL3 admin accounts cannot be deleted through the API (403)", async () => {
+  const a = new Client();
+  assert.equal((await a.req("POST", "/api/auth/login", { email: email("admin"), password: PASSWORD })).status, 200);
+  assert.equal((await a.req("DELETE", "/api/account", { password: PASSWORD })).status, 403);
+  assert.equal((await q("SELECT 1 FROM users WHERE email = $1", [email("admin")])).length, 1);
+});
+
+test("DEL4 deleting a repository: owner only, cascades to issues and applications", async () => {
+  const [repo] = await q("INSERT INTO repositories (owner_id, full_name) VALUES ($1, $2) RETURNING repo_id", [m1.userId, `test/del-${TAG}`]);
+  const [iss] = await q("INSERT INTO issues (repo_id, title, body) VALUES ($1, $2, 'b') RETURNING issue_id", [repo.repo_id, `Repo delete issue ${TAG}`]);
+  await c1.client.req("POST", "/api/contributor/applications", { issueId: iss.issue_id });
+
+  assert.equal((await m2.client.req("DELETE", `/api/maintainer/repos/${repo.repo_id}`)).status, 404);
+  assert.equal((await c1.client.req("DELETE", `/api/maintainer/repos/${repo.repo_id}`)).status, 403);
+  assert.equal((await q("SELECT 1 FROM repositories WHERE repo_id = $1", [repo.repo_id])).length, 1);
+
+  const ok = await m1.client.req("DELETE", `/api/maintainer/repos/${repo.repo_id}`);
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.json.removed, { issues: 1, applications: 1 });
+  assert.equal((await q("SELECT 1 FROM issues WHERE issue_id = $1", [iss.issue_id])).length, 0);
+  assert.equal((await q("SELECT 1 FROM applications WHERE issue_id = $1", [iss.issue_id])).length, 0);
+  assert.equal((await m1.client.req("DELETE", `/api/maintainer/repos/${repo.repo_id}`)).status, 404);
+});
+
 // ---------------------------------------------------------------- Database-level integrity
 async function sqlError(sql: string, params: unknown[] = []): Promise<string> {
   try {
