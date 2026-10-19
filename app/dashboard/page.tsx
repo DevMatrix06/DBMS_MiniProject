@@ -28,12 +28,26 @@ async function CurrentUser() {
           <Link href="/contributor/search" className="btn">
             Search issues
           </Link>
+          <Link href="/contributor/applications" className="btn">
+            My applications
+          </Link>
           <Link href="/contributor/profile" className="btn">
             Edit profile
           </Link>
         </div>
       ) : (
-        <p className="muted">Maintainer and admin tools are coming soon.</p>
+        <div className="row">
+          {rows[0].role === "maintainer" && (
+            <Link href="/maintainer" className="btn btn-primary">
+              My repositories
+            </Link>
+          )}
+          {rows[0].role === "admin" && (
+            <Link href="/admin" className="btn btn-primary">
+              Admin stats
+            </Link>
+          )}
+        </div>
       )}
     </>
   );

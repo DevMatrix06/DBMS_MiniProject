@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import ApplyButton from "../_components/ApplyButton";
 
 type Result = { issue_id: number; title: string; repo_name: string; difficulty: string; score: number };
 
@@ -106,6 +107,9 @@ export default function SearchPage() {
           </div>
           <div className="muted">
             {r.repo_name} · <span className={`diff-${r.difficulty}`}>{r.difficulty}</span>
+          </div>
+          <div style={{ marginTop: "0.6rem" }}>
+            <ApplyButton issueId={r.issue_id} initialStatus={null} />
           </div>
         </article>
       ))}

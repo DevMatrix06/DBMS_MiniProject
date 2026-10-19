@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { pool } from "@/lib/db";
+import ApplyButton from "../_components/ApplyButton";
 
 type Match = {
   issue_id: number;
@@ -12,6 +13,8 @@ type Match = {
   similarity: number;
   skills: string[];
   matched: string[];
+  body: string;
+  application_status: string | null;
 };
 
 async function Feed() {
@@ -41,7 +44,7 @@ async function Feed() {
   }
 
   const { rows } = await pool.query<Match>(
-    `SELECT m.issue_id, m.title, m.repo_name, m.difficulty, m.similarity,
+    `SELECT m.issue_id, m.title, m.repo_name, m.difficulty, m.similarity, i.body, a.status AS application_status,
             ARRAY(SELECT s.name FROM issue_skills isk
                   JOIN skills s ON s.skill_id = isk.skill_id
                   WHERE isk.issue_id = m.issue_id ORDER BY s.name) AS skills,
@@ -49,7 +52,10 @@ async function Feed() {
                   JOIN skills s ON s.skill_id = isk.skill_id
                   JOIN contributor_skills cs ON cs.skill_id = s.skill_id AND cs.contributor_id = $1
                   WHERE isk.issue_id = m.issue_id ORDER BY s.name) AS matched
-     FROM match_issues($1, 12) m`,
+     FROM match_issues($1, 12) m
+     JOIN issues i ON i.issue_id = m.issue_id
+     LEFT JOIN applications a ON a.issue_id = m.issue_id AND a.contributor_id = $1
+     ORDER BY m.similarity DESC`,
     [contributor.contributor_id]
   );
 
@@ -72,6 +78,13 @@ async function Feed() {
                 {s}
               </span>
             ))}
+          </div>
+          <details style={{ marginTop: "0.6rem" }}>
+            <summary className="muted">Details</summary>
+            <p style={{ marginTop: "0.4rem" }}>{m.body}</p>
+          </details>
+          <div style={{ marginTop: "0.6rem" }}>
+            <ApplyButton issueId={m.issue_id} initialStatus={m.application_status} />
           </div>
         </article>
       ))}

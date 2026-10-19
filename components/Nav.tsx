@@ -17,9 +17,12 @@ export default async function Nav() {
               <>
                 <Link href="/contributor/feed">For you</Link>
                 <Link href="/contributor/search">Search</Link>
+                <Link href="/contributor/applications">Applications</Link>
                 <Link href="/contributor/profile">Profile</Link>
               </>
             )}
+            {session.role === "maintainer" && <Link href="/maintainer">Repositories</Link>}
+            {session.role === "admin" && <Link href="/admin">Admin</Link>}
             <Link href="/dashboard">Dashboard</Link>
             <LogoutButton />
           </>
