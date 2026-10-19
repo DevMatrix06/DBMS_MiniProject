@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { requireRole } from "@/lib/auth";
 import { getAdminStats } from "@/lib/admin-stats";
 
-const cell = { textAlign: "left", padding: "0.35rem 0.6rem", borderBottom: "1px solid #8884" } as const;
+const cell = { textAlign: "left", padding: "0.35rem 0.6rem", borderBottom: "1px solid var(--border)" } as const;
 const table = { width: "100%", borderCollapse: "collapse", fontSize: "0.9rem", marginBottom: "2rem" } as const;
 
 export default function AdminPage() {
@@ -69,13 +69,13 @@ async function Stats() {
               <td style={cell}>{d.skill}</td>
               <td style={cell}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <div style={{ background: "#2563eb", height: "0.6rem", width: `${(d.open_issues / maxDemand) * 10}rem` }} />
+                  <div style={{ background: "var(--accent)", boxShadow: "0 0 10px rgba(var(--accent-rgb), 0.55)", borderRadius: "99px", height: "0.6rem", width: `${(d.open_issues / maxDemand) * 10}rem` }} />
                   {d.open_issues}
                 </div>
               </td>
               <td style={cell}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <div style={{ background: "#16a34a", height: "0.6rem", width: `${(d.contributors / maxDemand) * 10}rem` }} />
+                  <div style={{ background: "rgba(255,255,255,0.4)", borderRadius: "99px", height: "0.6rem", width: `${(d.contributors / maxDemand) * 10}rem` }} />
                   {d.contributors}
                 </div>
               </td>
