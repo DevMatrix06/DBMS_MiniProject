@@ -17,6 +17,9 @@ services:
       - ./db/03_logic.sql:/docker-entrypoint-initdb.d/03_logic.sql:ro
       - ./db/04_views.sql:/docker-entrypoint-initdb.d/04_views.sql:ro
       - ./db/07_application_rules.sql:/docker-entrypoint-initdb.d/07_application_rules.sql:ro
+      - ./db/08_close_issue_rule.sql:/docker-entrypoint-initdb.d/08_close_issue_rule.sql:ro
+      - ./db/09_hybrid_search.sql:/docker-entrypoint-initdb.d/09_hybrid_search.sql:ro
+      - ./db/10_login_attempts.sql:/docker-entrypoint-initdb.d/10_login_attempts.sql:ro
 
 volumes:
   pgdata:
