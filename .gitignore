@@ -42,3 +42,8 @@ next-env.d.ts
 
 # keep the env template tracked
 !.env.example
+
+# tool-generated notes for AI assistants
+AGENTS.md
+CLAUDE.md
+.claude/
