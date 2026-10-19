@@ -39,7 +39,10 @@ issue_skills(issue_id FK->issues, skill_id FK->skills, PK(issue_id, skill_id))
 applications(application_id PK, issue_id FK->issues, contributor_id FK->contributors,
              status, applied_at, UQ(issue_id, contributor_id))
 issue_status_log(log_id PK, issue_id FK->issues, old_status, new_status, changed_at)
+login_attempts(attempt_id PK, email, attempted_at)
 ```
+
+`login_attempts` has no foreign key on purpose: it stores the email that was typed, so failed logins for unknown accounts are limited in exactly the same way as failed logins for real ones.
 
 All tables are in 3NF: every non-key column depends only on the key of its table. Many-to-many links are resolved into junction tables, and skill names live once in `skills`.
 
@@ -128,6 +131,15 @@ All tables are in 3NF: every non-key column depends only on the key of its table
 | new_status | TEXT | NOT NULL | Status after |
 | changed_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | When (written by trigger `trg_issue_status_log`) |
 
+### login_attempts
+| Column | Type | Constraint | Meaning |
+|---|---|---|---|
+| attempt_id | BIGSERIAL | PK | Row id |
+| email | TEXT | NOT NULL, CHECK length <= 254 | Email typed in a failed login |
+| attempted_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | When the failure happened |
+
+Only failures are stored. Five failures for one email within 15 minutes block further attempts (HTTP 429); a successful login clears that email's rows.
+
 ### Indexes
 
 | Index | Table / column | Purpose |
@@ -138,6 +150,9 @@ All tables are in 3NF: every non-key column depends only on the key of its table
 | idx_issues_embedding | issues(embedding), HNSW cosine | Semantic search |
 | idx_contrib_embedding | contributors(profile_embedding), HNSW cosine | Similar-profile lookups |
 | idx_applications_contrib | applications(contributor_id) | A contributor's applications |
+| idx_issue_skills_skill | issue_skills(skill_id) | "Issues needing skill X" (skill filter); the primary key only serves lookups by issue |
+| idx_issues_status_difficulty | issues(status, difficulty) | "Open issues of difficulty D" (difficulty filter) |
+| idx_login_attempts_email_time | login_attempts(email, attempted_at) | Count recent failures for one email |
 
 ## 4. Views (db/04_views.sql)
 
@@ -146,3 +161,25 @@ All tables are in 3NF: every non-key column depends only on the key of its table
 | v_open_issues | Open issues with repository name, difficulty and skill list (`string_agg`) |
 | v_skill_demand | Per skill: open issues needing it and contributors having it (LEFT JOINs) |
 | v_repo_stats | Per repository: total, open, claimed and closed issue counts |
+
+## 5. Triggers and stored functions
+
+| Object | File | Type | What it does |
+|---|---|---|---|
+| `trg_issue_status_log` / `log_issue_status_change()` | `db/03_logic.sql` | AFTER UPDATE trigger on `issues` | Writes a row to `issue_status_log` whenever `status` changes |
+| `trg_application_rules` / `enforce_application_rules()` | `db/07_application_rules.sql` | BEFORE INSERT OR UPDATE OF status trigger on `applications` | Rejects an application unless the issue is `open`; allows at most 5 pending applications per contributor, serialised with `pg_advisory_xact_lock` so simultaneous requests cannot exceed the limit; uses `FOR SHARE` so an issue cannot be claimed between the check and the commit; lets the foreign key reject unknown issues |
+| `trg_reject_pending_on_close` / `reject_pending_on_close()` | `db/08_close_issue_rule.sql` | AFTER UPDATE OF status trigger on `issues` (only when it becomes `closed`) | Rejects the still-pending applications of the closed issue; accepted ones are kept |
+| `match_issues(contributor_id, limit)` | `db/03_logic.sql` | SQL function (STABLE) | Open issues ordered by cosine distance to the contributor's profile embedding |
+| `hybrid_search(query, embedding, limit, difficulty, skill)` | `db/09_hybrid_search.sql` | SQL function (STABLE) | Top 30 by full-text rank and top 30 by vector distance (filters applied before ranking), fused with Reciprocal Rank Fusion: `score = 1/(60 + rank_semantic) + 1/(60 + rank_keyword)` |
+
+## 6. Deletion rules
+
+Every foreign key is `ON DELETE CASCADE`, so removing a parent removes everything that depends on it:
+
+| Deleting | Also removes |
+|---|---|
+| A contributor account (`DELETE /api/account`) | contributor profile, `contributor_skills`, their `applications` |
+| A maintainer account | their repositories, those repositories' issues, `issue_skills`, `issue_status_log` rows and every application to those issues |
+| A repository (`DELETE /api/maintainer/repos/:id`) | its issues, `issue_skills`, `issue_status_log` rows and the applications to those issues |
+
+Deleting an account asks for the password again and is refused for admins, so a stolen session cannot wipe an account and the platform always keeps an admin. Tests DEL1 to DEL4 check these cascades.

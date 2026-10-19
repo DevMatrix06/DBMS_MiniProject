@@ -6,8 +6,8 @@ digraph ARCH {
   browser [label="Browser\n(contributor / maintainer / admin)", fillcolor="#fef9c3", color="#ca8a04"];
   subgraph cluster_next {
     label="Next.js 16 app (Node)"; style="rounded,dashed"; color="#6366f1"; fontname="Helvetica";
-    pages  [label="Pages (React Server Components)\n/login /dashboard /maintainer/* /admin"];
-    api    [label="Route Handlers (/api/...)\nauth, match, search,\nmaintainer/*, admin/stats"];
+    pages  [label="Pages (React Server Components)\n/login /signup /dashboard /account\n/contributor/* /maintainer/* /admin"];
+    api    [label="Route Handlers (/api/...)\nauth, account, skills, match, search,\ncontributor/*, maintainer/*, admin/stats"];
     auth   [label="lib/auth.ts\nJWT cookie + role check", fillcolor="#dcfce7", color="#16a34a"];
     emb    [label="lib/embeddings.ts\ntext -> 768-dim vector", fillcolor="#dcfce7", color="#16a34a"];
     pool   [label="lib/db.ts\npg connection pool", fillcolor="#dcfce7", color="#16a34a"];
@@ -15,10 +15,10 @@ digraph ARCH {
   gemini [label="Gemini Embedding API\ngemini-embedding-001", fillcolor="#fce7f3", color="#db2777"];
   subgraph cluster_db {
     label="PostgreSQL 16 + pgvector (Docker)"; style="rounded,dashed"; color="#0f766e"; fontname="Helvetica";
-    tables [label="Tables\nusers, contributors, skills,\nrepositories, issues, applications ...", fillcolor="#ccfbf1", color="#0f766e"];
-    logic  [label="Triggers / functions\ntrg_issue_status_log\nmatch_issues()", fillcolor="#ccfbf1", color="#0f766e"];
+    tables [label="Tables\nusers, contributors, skills,\nrepositories, issues, applications,\nissue_status_log, login_attempts ...", fillcolor="#ccfbf1", color="#0f766e"];
+    logic  [label="Triggers / functions\ntrg_issue_status_log\ntrg_application_rules\ntrg_reject_pending_on_close\nmatch_issues(), hybrid_search()", fillcolor="#ccfbf1", color="#0f766e"];
     views  [label="Views\nv_open_issues, v_skill_demand,\nv_repo_stats", fillcolor="#ccfbf1", color="#0f766e"];
-    idx    [label="Indexes\nHNSW (cosine), GIN (full text)", fillcolor="#ccfbf1", color="#0f766e"];
+    idx    [label="Indexes\nHNSW (cosine), GIN (full text),\nB-tree (filters, FKs)", fillcolor="#ccfbf1", color="#0f766e"];
   }
 
   browser -> pages [label="HTTP"];

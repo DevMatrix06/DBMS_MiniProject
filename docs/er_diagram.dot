@@ -75,6 +75,13 @@ digraph ER {
     <TR><TD ALIGN="LEFT">old_status, new_status</TD></TR>
     <TR><TD ALIGN="LEFT">changed_at</TD></TR></TABLE>>];
 
+  login_attempts [label=<<TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="3">
+    <TR><TD BGCOLOR="#64748b"><FONT COLOR="white"><B>login_attempts</B></FONT></TD></TR>
+    <TR><TD ALIGN="LEFT"><B>PK</B> attempt_id</TD></TR>
+    <TR><TD ALIGN="LEFT">email (typed value, no FK)</TD></TR>
+    <TR><TD ALIGN="LEFT">attempted_at</TD></TR></TABLE>>];
+
+  users -> login_attempts      [label="rate limit by email (logical link only)", style=dashed, arrowhead=none, arrowtail=none, dir=none];
   users -> contributors        [label="1 : 0..1  (role = contributor)", arrowhead=tee, arrowtail=tee];
   users -> repositories        [label="owns  1 : N"];
   repositories -> issues       [label="has  1 : N"];
