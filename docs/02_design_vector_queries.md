@@ -59,14 +59,55 @@ Key flows:
 
 ## 5. Screenshots
 
-Add PNGs to `docs/screenshots/` and list them here (suggested set):
+All screenshots are in `docs/screenshots/`.
 
-1. Maintainer repository list (`/maintainer`)
-2. New issue form (`/maintainer/repos/<id>/issues/new`)
-3. Issue list with applicant counts
-4. Applicant review page before and after accepting
-5. Admin dashboard (`/admin`)
-6. `SELECT * FROM issue_status_log;` after an accept
+### 5.1 Maintainer repository list
+
+The maintainer's own repositories with their open-issue counts (`GET /api/maintainer/repos`: LEFT JOIN + GROUP BY).
+
+![Maintainer repository list](screenshots/01-maintainer-repos.png)
+
+### 5.2 New issue form
+
+Title, description, difficulty and required skills. On submit the API embeds the title, body and skill names, then inserts the issue and its skills in one transaction.
+
+![New issue form](screenshots/02-new-issue-form.png)
+
+### 5.3 Issue list for a repository
+
+Issues with their difficulty, skills, status and number of pending applicants. Open issues can be closed from here.
+
+![Issue list](screenshots/03-issue-list.png)
+
+### 5.4 Application review (before accepting)
+
+Applicants for one issue, with skills, experience level, application time and a semantic match score (cosine similarity between the contributor profile and the issue embedding).
+
+![Applicant review before accepting](screenshots/04-review-before.png)
+
+### 5.5 Application review (after accepting)
+
+After one applicant is accepted, the other pending applications are rejected and the issue becomes `claimed`. This all happens in a single transaction that locks the issue row.
+
+![Applicant review after accepting](screenshots/05-review-after.png)
+
+### 5.6 Admin dashboard
+
+Analytics read from the views `v_repo_stats`, `v_skill_demand` and `v_open_issues`.
+
+![Admin dashboard](screenshots/06-admin-dashboard.png)
+
+### 5.7 Status audit log
+
+`SELECT * FROM issue_status_log;` after accepting an applicant. The trigger `trg_issue_status_log` wrote the `open -> claimed` row automatically.
+
+![issue_status_log after accepting an applicant](screenshots/07-status-log.png)
+
+### 5.8 Semantic search
+
+`GET /api/search?q=...&mode=semantic` returns open issues ranked by cosine similarity to the embedding of the query text.
+
+![Semantic search result](screenshots/08-semantic-search.png)
 
 ## 6. Testing results
 
