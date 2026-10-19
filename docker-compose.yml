@@ -10,8 +10,12 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # .sql files here run in alphabetical order on FIRST start only
-      - ./db:/docker-entrypoint-initdb.d:ro
+      # Only these run on FIRST start, in order. 05_queries.sql and 06_alter_demo.sql are manual
+      # demo scripts (06 fails on an empty database), so they must not be mounted here.
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+      - ./db/03_logic.sql:/docker-entrypoint-initdb.d/03_logic.sql:ro
+      - ./db/04_views.sql:/docker-entrypoint-initdb.d/04_views.sql:ro
 
 volumes:
   pgdata:

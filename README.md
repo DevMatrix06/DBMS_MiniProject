@@ -11,7 +11,7 @@ DBMS Level 3 project: PostgreSQL + pgvector, Next.js (Route Handlers).
 ## Setup
 1. Install Node 20+ and Docker Desktop.
 2. Copy `.env.example` to `.env` and set the passwords/secrets.
-3. `docker compose up -d` creates the DB and runs `db/*.sql` on first start.
+3. `docker compose up -d` creates the DB and runs `db/01` to `db/04` (schema, seed, logic, views) on first start. `db/05_queries.sql` and `db/06_alter_demo.sql` are demo scripts to run by hand (see `docs/`).
    To re-run the SQL from scratch: `docker compose down -v` then `docker compose up -d`.
 4. `npm install`
 5. Put your Gemini key in `EMBEDDING_API_KEY` (.env), then `npm run seed` to load demo repos, issues and contributors with embeddings (`npm run seed -- --reset` to redo). Demo password for all seeded users: `password123`.
