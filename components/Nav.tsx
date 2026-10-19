@@ -29,6 +29,7 @@ export default async function Nav() {
             {session.role === "maintainer" && <NavLink href="/maintainer">Repositories</NavLink>}
             {session.role === "admin" && <NavLink href="/admin">Admin</NavLink>}
             <NavLink href="/dashboard">Dashboard</NavLink>
+            <NavLink href="/account">Account</NavLink>
             <LogoutButton />
           </>
         ) : (

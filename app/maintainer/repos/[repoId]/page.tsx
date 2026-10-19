@@ -5,6 +5,7 @@ import { pool } from "@/lib/db";
 import { requireRole } from "@/lib/auth";
 import { parseId } from "@/lib/maintainer";
 import CloseIssueButton from "../../_components/CloseIssueButton";
+import DeleteRepoButton from "../../_components/DeleteRepoButton";
 import styles from "../../maintainer.module.css";
 
 type IssueRow = {
@@ -55,9 +56,12 @@ async function RepoIssues({ params }: { params: Promise<{ repoId: string }> }) {
     <>
       <div className={styles.row}>
         <h1 className={styles.h1}>{repo.rows[0].full_name}</h1>
-        <Link className={`${styles.btn} ${styles.primary}`} href={`/maintainer/repos/${repoId}/issues/new`}>
-          New issue
-        </Link>
+        <span className={styles.row} style={{ gap: "0.5rem" }}>
+          <DeleteRepoButton repoId={repoId} issueCount={rows.length} />
+          <Link className={`${styles.btn} ${styles.primary}`} href={`/maintainer/repos/${repoId}/issues/new`}>
+            New issue
+          </Link>
+        </span>
       </div>
       {rows.length === 0 && <p className={styles.muted}>No issues yet.</p>}
       {rows.length > 0 && (
