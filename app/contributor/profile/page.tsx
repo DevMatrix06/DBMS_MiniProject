@@ -39,10 +39,10 @@ async function Profile() {
 export default function ProfilePage() {
   return (
     <main className="container">
-      <h1>Your profile</h1>
-      <p className="muted">
-        Your bio and skills are turned into an embedding that is compared with every open issue.
-      </p>
+      <div className="page-head">
+        <h1>Your profile</h1>
+        <p>Your bio and skills become an embedding that is matched against every open issue.</p>
+      </div>
       <Suspense fallback={<p className="muted">Loading profile...</p>}>
         <Profile />
       </Suspense>

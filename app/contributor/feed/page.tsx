@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { pool } from "@/lib/db";
 import ApplyButton from "../_components/ApplyButton";
+import { Arrow, Sparkles, User } from "@/components/Icons";
 
 type Match = {
   issue_id: number;
@@ -42,12 +43,15 @@ async function Feed({ searchParams }: { searchParams: Promise<Record<string, str
 
   if (!contributor.has_profile) {
     return (
-      <div className="card">
+      <div className="card empty">
+        <div className="icon-box">
+          <User size={20} />
+        </div>
         <h2>Complete your profile first</h2>
-        <p className="muted">
-          Matching needs your bio and skills. <Link href="/contributor/profile">Set up your profile</Link>{" "}
-          and your recommended issues will appear here.
-        </p>
+        <p>Matching needs your bio and skills. It takes about a minute.</p>
+        <Link href="/contributor/profile" className="btn btn-primary">
+          Set up your profile <Arrow size={16} />
+        </Link>
       </div>
     );
   }
@@ -75,45 +79,79 @@ async function Feed({ searchParams }: { searchParams: Promise<Record<string, str
 
   if (shown.length === 0) {
     return (
-      <p className="muted">
-        {page === 1 ? "No open issues to recommend right now." : "No more recommendations."}{" "}
-        {page > 1 && <Link href="/contributor/feed">Back to the first page</Link>}
-      </p>
+      <div className="card empty">
+        <div className="icon-box">
+          <Sparkles size={20} />
+        </div>
+        <h2>{page === 1 ? "No open issues right now" : "No more recommendations"}</h2>
+        {page > 1 ? <Link href="/contributor/feed">Back to the first page</Link> : <p>Check back soon.</p>}
+      </div>
     );
   }
 
   return (
     <>
-      {shown.map((m) => (
-        <article className="card" key={m.issue_id}>
-          <div className="card-head">
-            <span className="card-title">{m.title}</span>
-            <span className="score">{Math.round(m.similarity * 100)}% match</span>
-          </div>
-          <div className="muted">
-            {m.repo_name} · <span className={`diff-${m.difficulty}`}>{m.difficulty}</span>
-          </div>
-          <div className="tags">
-            {m.skills.map((s) => (
-              <span key={s} className={m.matched.includes(s) ? "tag tag-match" : "tag"}>
-                {s}
-              </span>
-            ))}
-          </div>
-          <details style={{ marginTop: "0.6rem" }}>
-            <summary className="muted">Details</summary>
-            <p style={{ marginTop: "0.4rem" }}>{m.body}</p>
-          </details>
-          <div style={{ marginTop: "0.6rem" }}>
-            <ApplyButton issueId={m.issue_id} initialStatus={m.application_status} />
-          </div>
-        </article>
-      ))}
+      <div className="card-list">
+        {shown.map((m) => {
+          const pct = Math.round(m.similarity * 100);
+          return (
+            <article className="card card-hover" key={m.issue_id}>
+              <div className="card-head">
+                <div>
+                  <div className="repo-line">
+                    <span className="avatar">{m.repo_name.charAt(0).toUpperCase()}</span>
+                    {m.repo_name}
+                    <span className={`badge badge-${m.difficulty}`}>{m.difficulty}</span>
+                  </div>
+                  <div className="card-title">{m.title}</div>
+                </div>
+                <div className="match">
+                  <div className="match-num">{pct}%</div>
+                  <div className="match-label">match</div>
+                </div>
+              </div>
+              <div className="meter" role="img" aria-label={`${pct} percent match`}>
+                <span style={{ width: `${pct}%` }} />
+              </div>
+              <div className="tags">
+                {m.skills.map((s) => (
+                  <span key={s} className={m.matched.includes(s) ? "tag tag-match" : "tag"}>
+                    {m.matched.includes(s) && "✓ "}
+                    {s}
+                  </span>
+                ))}
+              </div>
+              <details className="more">
+                <summary>Details</summary>
+                <p>{m.body}</p>
+              </details>
+              <div className="card-foot">
+                <span className="muted small">
+                  You have {m.matched.length} of {m.skills.length} skill{m.skills.length === 1 ? "" : "s"}
+                </span>
+                <ApplyButton issueId={m.issue_id} initialStatus={m.application_status} />
+              </div>
+            </article>
+          );
+        })}
+      </div>
 
-      <nav className="row" style={{ justifyContent: "space-between", marginTop: "1rem" }}>
-        {page > 1 ? <Link href={`/contributor/feed?page=${page - 1}`}>&larr; Previous</Link> : <span />}
-        <span className="muted">Page {page}</span>
-        {hasNext ? <Link href={`/contributor/feed?page=${page + 1}`}>Next &rarr;</Link> : <span />}
+      <nav className="pager" aria-label="Pagination">
+        {page > 1 ? (
+          <Link href={`/contributor/feed?page=${page - 1}`} className="btn btn-sm">
+            &larr; Previous
+          </Link>
+        ) : (
+          <span />
+        )}
+        <span className="muted small">Page {page}</span>
+        {hasNext ? (
+          <Link href={`/contributor/feed?page=${page + 1}`} className="btn btn-sm">
+            Next &rarr;
+          </Link>
+        ) : (
+          <span />
+        )}
       </nav>
     </>
   );
@@ -122,11 +160,10 @@ async function Feed({ searchParams }: { searchParams: Promise<Record<string, str
 export default function FeedPage(props: PageProps<"/contributor/feed">) {
   return (
     <main className="container">
-      <h1>Recommended for you</h1>
-      <p className="muted">
-        Open issues ranked by semantic similarity to your profile. Highlighted tags are skills you
-        already have.
-      </p>
+      <div className="page-head">
+        <h1>Recommended for you</h1>
+        <p>Open issues ranked by semantic similarity to your profile. Skills you already have are highlighted.</p>
+      </div>
       <Suspense fallback={<p className="muted">Finding matches...</p>}>
         <Feed searchParams={props.searchParams} />
       </Suspense>

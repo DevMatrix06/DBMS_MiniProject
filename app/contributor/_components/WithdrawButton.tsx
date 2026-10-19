@@ -24,10 +24,10 @@ export default function WithdrawButton({ applicationId }: { applicationId: numbe
 
   return (
     <span className="row">
-      <button type="button" onClick={withdraw} disabled={busy}>
+      {error && <span className="error small">{error}</span>}
+      <button type="button" className="btn-sm" onClick={withdraw} disabled={busy}>
         {busy ? "Withdrawing..." : "Withdraw"}
       </button>
-      {error && <span className="error">{error}</span>}
     </span>
   );
 }

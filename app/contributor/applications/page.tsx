@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { pool } from "@/lib/db";
 import WithdrawButton from "../_components/WithdrawButton";
+import { Arrow, Briefcase, Check, Clock } from "@/components/Icons";
 
 type Row = {
   application_id: number;
@@ -15,7 +16,7 @@ type Row = {
 };
 
 const HINT: Record<Row["status"], string> = {
-  pending: "Waiting for the maintainer",
+  pending: "Waiting for the maintainer to review",
   accepted: "You got it. The issue is yours.",
   rejected: "Not selected this time",
   withdrawn: "You withdrew this application",
@@ -39,31 +40,54 @@ async function Applications() {
 
   if (rows.length === 0) {
     return (
-      <p className="muted">
-        You haven&apos;t applied to anything yet. Browse your <Link href="/contributor/feed">recommended issues</Link>.
-      </p>
+      <div className="card empty">
+        <div className="icon-box">
+          <Briefcase size={20} />
+        </div>
+        <h2>No applications yet</h2>
+        <p>Browse your recommended issues and apply to the ones that fit.</p>
+        <Link href="/contributor/feed" className="btn btn-primary">
+          See recommendations <Arrow size={16} />
+        </Link>
+      </div>
     );
   }
 
+  const pending = rows.filter((r) => r.status === "pending").length;
+
   return (
     <>
-      {rows.map((a) => (
-        <article className="card" key={a.application_id}>
-          <div className="card-head">
-            <span className="card-title">{a.title}</span>
-            <span className={a.status === "accepted" ? "score" : "tag"}>{a.status}</span>
-          </div>
-          <div className="muted">
-            {a.repo_name} · applied {new Date(a.applied_at).toLocaleDateString()}
-          </div>
-          <p className="muted" style={{ margin: "0.4rem 0 0" }}>{HINT[a.status]}</p>
-          {a.status === "pending" && (
-            <div style={{ marginTop: "0.6rem" }}>
-              <WithdrawButton applicationId={a.application_id} />
+      <div className="row small muted" style={{ marginBottom: "1rem" }}>
+        <span>
+          <b style={{ color: "var(--text)" }}>{pending}</b> of 5 pending slots used
+        </span>
+      </div>
+      <div className="card-list">
+        {rows.map((a) => (
+          <article className="card" key={a.application_id}>
+            <div className="card-head">
+              <div>
+                <div className="repo-line">
+                  <span className="avatar">{a.repo_name.charAt(0).toUpperCase()}</span>
+                  {a.repo_name}
+                </div>
+                <div className="card-title">{a.title}</div>
+              </div>
+              <span className={`badge badge-${a.status}`}>
+                {a.status === "pending" && <Clock size={13} />}
+                {a.status === "accepted" && <Check size={13} />}
+                {a.status}
+              </span>
             </div>
-          )}
-        </article>
-      ))}
+            <div className="card-foot">
+              <span className="muted small">
+                {HINT[a.status]} · applied {new Date(a.applied_at).toLocaleDateString()}
+              </span>
+              {a.status === "pending" && <WithdrawButton applicationId={a.application_id} />}
+            </div>
+          </article>
+        ))}
+      </div>
     </>
   );
 }
@@ -71,8 +95,10 @@ async function Applications() {
 export default function ApplicationsPage() {
   return (
     <main className="container">
-      <h1>My applications</h1>
-      <p className="muted">You can have up to 5 pending applications at a time.</p>
+      <div className="page-head">
+        <h1>My applications</h1>
+        <p>Track the status of every issue you applied to. You can have up to 5 pending at a time.</p>
+      </div>
       <Suspense fallback={<p className="muted">Loading...</p>}>
         <Applications />
       </Suspense>

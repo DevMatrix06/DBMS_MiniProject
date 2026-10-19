@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Check, Clock } from "@/components/Icons";
 
 // initialStatus: the contributor's current application status for this issue, or null.
 export default function ApplyButton({ issueId, initialStatus }: { issueId: number; initialStatus: string | null }) {
@@ -9,7 +10,12 @@ export default function ApplyButton({ issueId, initialStatus }: { issueId: numbe
   const [busy, setBusy] = useState(false);
 
   if (status && status !== "withdrawn") {
-    return <span className="tag tag-match">Application {status}</span>;
+    return (
+      <span className={`badge badge-${status}`} style={{ fontSize: "0.85rem", padding: "0.3rem 0.8rem" }}>
+        {status === "pending" ? <Clock size={14} /> : status === "accepted" ? <Check size={14} /> : null}
+        Application {status}
+      </span>
+    );
   }
 
   async function apply() {
@@ -34,10 +40,10 @@ export default function ApplyButton({ issueId, initialStatus }: { issueId: numbe
 
   return (
     <span className="row">
-      <button type="button" className="btn-primary" onClick={apply} disabled={busy}>
+      {error && <span className="error small">{error}</span>}
+      <button type="button" className="btn-primary btn-sm" onClick={apply} disabled={busy}>
         {busy ? "Applying..." : status === "withdrawn" ? "Apply again" : "Apply"}
       </button>
-      {error && <span className="error">{error}</span>}
     </span>
   );
 }

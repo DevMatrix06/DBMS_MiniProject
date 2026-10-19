@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import ApplyButton from "../_components/ApplyButton";
+import { Search } from "@/components/Icons";
 
 type Result = {
   issue_id: number;
@@ -15,16 +16,22 @@ type Result = {
 };
 type Mode = "hybrid" | "semantic" | "keyword";
 
+const MODES: { id: Mode; label: string; hint: string }[] = [
+  { id: "hybrid", label: "Hybrid", hint: "Keyword and meaning combined into one ranking" },
+  { id: "semantic", label: "Semantic", hint: "Finds issues by meaning, using pgvector embeddings" },
+  { id: "keyword", label: "Keyword", hint: "Exact words only, using PostgreSQL full-text search" },
+];
 const EXAMPLES = ["make queries faster", "screen reader support", "run in a container", "handle missing data"];
 
 export default function SearchPage() {
   const [q, setQ] = useState("");
   const [mode, setMode] = useState<Mode>("hybrid");
   const [results, setResults] = useState<Result[] | null>(null);
+  const [shownMode, setShownMode] = useState<Mode>("hybrid"); // mode the current results came from
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function run(query: string, m: typeof mode) {
+  async function run(query: string, m: Mode) {
     setError("");
     setLoading(true);
     try {
@@ -38,7 +45,10 @@ export default function SearchPage() {
         setResults(null);
       } else {
         setResults(data.results);
+        setShownMode(m);
       }
+    } catch {
+      setError("Cannot reach the server. Is the dev server running?");
     } finally {
       setLoading(false);
     }
@@ -46,11 +56,10 @@ export default function SearchPage() {
 
   return (
     <main className="container">
-      <h1>Search issues</h1>
-      <p className="muted">
-        <b>Hybrid</b> combines <b>semantic</b> search (meaning, via embeddings) with <b>keyword</b> search (exact words,
-        PostgreSQL full-text). Switch modes to compare them.
-      </p>
+      <div className="page-head">
+        <h1>Search issues</h1>
+        <p>Describe what you want to work on. Switch modes to see how each search method behaves.</p>
+      </div>
 
       <form
         className="form"
@@ -59,28 +68,41 @@ export default function SearchPage() {
           if (q.trim().length >= 2) run(q.trim(), mode);
         }}
       >
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Describe what you want to work on" />
-        <div className="row">
-          <select
-            value={mode}
-            onChange={(e) => {
-              const m = e.target.value as typeof mode;
-              setMode(m);
-              if (q.trim().length >= 2) run(q.trim(), m);
-            }}
-            style={{ width: "auto" }}
-          >
-            <option value="hybrid">Hybrid (keyword + semantic)</option>
-            <option value="semantic">Semantic (pgvector)</option>
-            <option value="keyword">Keyword (full-text)</option>
-          </select>
+        <div className="searchbar">
+          <Search size={18} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="e.g. make queries faster"
+            aria-label="Search issues"
+          />
+        </div>
+        <div className="row between">
+          <div className="segmented" role="group" aria-label="Search mode">
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                aria-pressed={mode === m.id}
+                onClick={() => {
+                  setMode(m.id);
+                  if (q.trim().length >= 2) run(q.trim(), m.id);
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? "Searching..." : "Search"}
           </button>
         </div>
+        <p className="muted small" style={{ margin: 0 }}>
+          {MODES.find((m) => m.id === mode)?.hint}
+        </p>
       </form>
 
-      <div className="tags" style={{ marginBottom: "1.25rem" }}>
+      <div className="tags" style={{ marginBottom: "1.5rem" }}>
         {EXAMPLES.map((ex) => (
           <button
             key={ex}
@@ -97,39 +119,58 @@ export default function SearchPage() {
       </div>
 
       {error && (
-        <p className="error">
+        <div className="alert" role="alert">
           {error} {error.includes("log in") && <Link href="/login">Log in</Link>}
-        </p>
+        </div>
       )}
 
       {results && results.length === 0 && (
-        <p className="muted">
-          No results.{" "}
-          {mode === "keyword" && "Keyword search needs the exact words - try the semantic mode."}
-        </p>
+        <div className="card empty">
+          <div className="icon-box">
+            <Search size={20} />
+          </div>
+          <h2>No results</h2>
+          <p>
+            {shownMode === "keyword"
+              ? "Keyword search needs the exact words. Try Semantic or Hybrid mode."
+              : "Try describing the work in different words."}
+          </p>
+        </div>
       )}
 
-      {results?.map((r) => (
-        <article className="card" key={r.issue_id}>
-          <div className="card-head">
-            <span className="card-title">{r.title}</span>
-            <span className="score">{mode === "hybrid" ? "" : r.score.toFixed(2)}</span>
-          </div>
-          <div className="muted">
-            {r.repo_name} · <span className={`diff-${r.difficulty}`}>{r.difficulty}</span>
-            {mode === "hybrid" && (
-              <>
-                {" · "}
-                {r.in_semantic && <span className="tag tag-match">semantic</span>}{" "}
-                {r.in_keyword && <span className="tag tag-match">keyword</span>}
-              </>
-            )}
-          </div>
-          <div style={{ marginTop: "0.6rem" }}>
-            <ApplyButton issueId={r.issue_id} initialStatus={null} />
-          </div>
-        </article>
-      ))}
+      <div className="card-list" key={`${shownMode}-${q}-${results?.length ?? 0}`}>
+        {results?.map((r) => (
+          <article className="card card-hover" key={r.issue_id}>
+            <div className="card-head">
+              <div>
+                <div className="repo-line">
+                  <span className="avatar">{r.repo_name.charAt(0).toUpperCase()}</span>
+                  {r.repo_name}
+                  <span className={`badge badge-${r.difficulty}`}>{r.difficulty}</span>
+                </div>
+                <div className="card-title">{r.title}</div>
+              </div>
+              {shownMode !== "hybrid" && (
+                <div className="match">
+                  <div className="match-num">{r.score.toFixed(2)}</div>
+                  <div className="match-label">{shownMode === "semantic" ? "similarity" : "rank"}</div>
+                </div>
+              )}
+            </div>
+            <div className="card-foot">
+              {shownMode === "hybrid" ? (
+                <span className="row">
+                  {r.in_semantic && <span className="tag tag-match">semantic</span>}
+                  {r.in_keyword && <span className="tag tag-match">keyword</span>}
+                </span>
+              ) : (
+                <span />
+              )}
+              <ApplyButton issueId={r.issue_id} initialStatus={null} />
+            </div>
+          </article>
+        ))}
+      </div>
     </main>
   );
 }
