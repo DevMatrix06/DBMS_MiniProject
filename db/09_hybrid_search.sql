@@ -5,7 +5,11 @@
 -- Apply to an existing DB with:
 --   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/09_hybrid_search.sql
 
-CREATE OR REPLACE FUNCTION hybrid_search(p_query TEXT, p_embedding vector(768), p_limit INT DEFAULT 10)
+-- Optional filters (difficulty, skill name) are applied BEFORE ranking, so the top 30 of each method
+-- already respect them. NULL means "no filter".
+DROP FUNCTION IF EXISTS hybrid_search(TEXT, vector, INT);
+CREATE OR REPLACE FUNCTION hybrid_search(p_query TEXT, p_embedding vector(768), p_limit INT DEFAULT 10,
+                                         p_difficulty TEXT DEFAULT NULL, p_skill TEXT DEFAULT NULL)
 RETURNS TABLE (issue_id INT, title TEXT, repo_name TEXT, difficulty TEXT,
                score REAL, in_semantic BOOLEAN, in_keyword BOOLEAN)
 LANGUAGE sql STABLE AS $$
@@ -14,6 +18,9 @@ LANGUAGE sql STABLE AS $$
         FROM (SELECT i.issue_id, i.embedding <=> p_embedding AS dist
               FROM issues i
               WHERE i.status = 'open' AND i.embedding IS NOT NULL
+                AND (p_difficulty IS NULL OR i.difficulty = p_difficulty)
+                AND (p_skill IS NULL OR EXISTS (SELECT 1 FROM issue_skills isk JOIN skills s ON s.skill_id = isk.skill_id
+                                                WHERE isk.issue_id = i.issue_id AND s.name = p_skill))
               ORDER BY i.embedding <=> p_embedding
               LIMIT 30) s
     ),
@@ -22,6 +29,9 @@ LANGUAGE sql STABLE AS $$
         FROM (SELECT i.issue_id, ts_rank(i.search_tsv, q) AS rank
               FROM issues i, websearch_to_tsquery('english', p_query) q
               WHERE i.status = 'open' AND i.search_tsv @@ q
+                AND (p_difficulty IS NULL OR i.difficulty = p_difficulty)
+                AND (p_skill IS NULL OR EXISTS (SELECT 1 FROM issue_skills isk JOIN skills s ON s.skill_id = isk.skill_id
+                                                WHERE isk.issue_id = i.issue_id AND s.name = p_skill))
               ORDER BY ts_rank(i.search_tsv, q) DESC
               LIMIT 30) k
     )

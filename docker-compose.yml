@@ -20,6 +20,7 @@ services:
       - ./db/08_close_issue_rule.sql:/docker-entrypoint-initdb.d/08_close_issue_rule.sql:ro
       - ./db/09_hybrid_search.sql:/docker-entrypoint-initdb.d/09_hybrid_search.sql:ro
       - ./db/10_login_attempts.sql:/docker-entrypoint-initdb.d/10_login_attempts.sql:ro
+      - ./db/11_filter_indexes.sql:/docker-entrypoint-initdb.d/11_filter_indexes.sql:ro
 
 volumes:
   pgdata:

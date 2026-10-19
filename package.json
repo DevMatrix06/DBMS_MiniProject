@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "node --env-file=.env scripts/seed.ts",
-    "test": "node --env-file=.env --test tests/api.test.mts"
+    "test": "node --env-file=.env --test tests/api.test.mts",
+    "db:migrate": "node --env-file=.env scripts/migrate.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

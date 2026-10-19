@@ -12,13 +12,25 @@ export async function POST(req: Request) {
   // Brute-force protection: too many recent failures for this email blocks further attempts,
   // even with the right password. Unknown emails are tracked too, so the response never
   // reveals whether an account exists.
-  const recent = await pool.query<{ n: number; retry_after: number }>(
-    `SELECT count(*)::int AS n,
-            COALESCE(CEIL(EXTRACT(EPOCH FROM (min(attempted_at) + make_interval(mins => $2) - now()))), 0)::int AS retry_after
-     FROM login_attempts
-     WHERE email = $1 AND attempted_at > now() - make_interval(mins => $2)`,
-    [email, WINDOW_MINUTES]
-  );
+  let recent;
+  try {
+    recent = await pool.query<{ n: number; retry_after: number }>(
+      `SELECT count(*)::int AS n,
+              COALESCE(CEIL(EXTRACT(EPOCH FROM (min(attempted_at) + make_interval(mins => $2) - now()))), 0)::int AS retry_after
+       FROM login_attempts
+       WHERE email = $1 AND attempted_at > now() - make_interval(mins => $2)`,
+      [email, WINDOW_MINUTES]
+    );
+  } catch (e) {
+    // 42P01 = undefined_table: the database was created before db/10_login_attempts.sql existed.
+    if ((e as { code?: string }).code === "42P01") {
+      return Response.json(
+        { error: "The database is out of date (login_attempts table is missing). Run: npm run db:migrate" },
+        { status: 503 }
+      );
+    }
+    return Response.json({ error: "Could not reach the database. Is it running?" }, { status: 503 });
+  }
   if (recent.rows[0].n >= MAX_FAILURES) {
     const wait = Math.max(recent.rows[0].retry_after, 1);
     return Response.json(
