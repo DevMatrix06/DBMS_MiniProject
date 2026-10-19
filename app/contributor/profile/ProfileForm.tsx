@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Segmented from "@/components/Segmented";
 
 type Skill = { skill_id: number; name: string; category: string };
 type Pick = { skillId: number; proficiency: number };
@@ -95,20 +96,16 @@ export default function ProfileForm(props: {
         </label>
         <div className="field" style={{ marginTop: "1rem" }}>
           <span>Experience level</span>
-          <div className="segmented" role="group" aria-label="Experience level" style={{ width: "fit-content" }}>
-            {LEVELS.map((l) => (
-              <button
-                key={l}
-                type="button"
-                aria-pressed={level === l}
-                onClick={() => {
-                  setLevel(l);
-                  setSaved(false);
-                }}
-              >
-                {l.charAt(0).toUpperCase() + l.slice(1)}
-              </button>
-            ))}
+          <div style={{ width: "fit-content", maxWidth: "100%" }}>
+            <Segmented
+              label="Experience level"
+              value={level as (typeof LEVELS)[number]}
+              options={LEVELS.map((l) => ({ value: l, label: l.charAt(0).toUpperCase() + l.slice(1) }))}
+              onChange={(l) => {
+                setLevel(l);
+                setSaved(false);
+              }}
+            />
           </div>
         </div>
       </section>

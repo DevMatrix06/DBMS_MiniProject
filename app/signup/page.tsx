@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Segmented from "@/components/Segmented";
 
 type Role = "contributor" | "maintainer";
 
@@ -50,14 +51,16 @@ export default function SignupPage() {
         <p className="muted">Pick how you want to use DevMatch.</p>
 
         <form onSubmit={onSubmit} className="form" style={{ marginTop: "1.25rem" }}>
-          <div className="segmented" role="group" aria-label="Account type" style={{ width: "100%" }}>
-            <button type="button" aria-pressed={role === "contributor"} onClick={() => setRole("contributor")} style={{ flex: 1 }}>
-              Contributor
-            </button>
-            <button type="button" aria-pressed={role === "maintainer"} onClick={() => setRole("maintainer")} style={{ flex: 1 }}>
-              Maintainer
-            </button>
-          </div>
+          <Segmented
+            label="Account type"
+            fullWidth
+            value={role}
+            onChange={setRole}
+            options={[
+              { value: "contributor", label: "Contributor" },
+              { value: "maintainer", label: "Maintainer" },
+            ]}
+          />
           <p className="muted small" style={{ margin: "-0.25rem 0 0" }}>
             {role === "contributor" ? "Find and apply to issues that match your skills." : "List repositories and review applicants."}
           </p>

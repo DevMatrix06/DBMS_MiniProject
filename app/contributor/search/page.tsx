@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import ApplyButton from "../_components/ApplyButton";
 import { Search } from "@/components/Icons";
+import Segmented from "@/components/Segmented";
 
 type Result = {
   issue_id: number;
@@ -78,21 +79,15 @@ export default function SearchPage() {
           />
         </div>
         <div className="row between">
-          <div className="segmented" role="group" aria-label="Search mode">
-            {MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                aria-pressed={mode === m.id}
-                onClick={() => {
-                  setMode(m.id);
-                  if (q.trim().length >= 2) run(q.trim(), m.id);
-                }}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="Search mode"
+            value={mode}
+            options={MODES.map((m) => ({ value: m.id, label: m.label }))}
+            onChange={(m) => {
+              setMode(m);
+              if (q.trim().length >= 2) run(q.trim(), m);
+            }}
+          />
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? "Searching..." : "Search"}
           </button>
