@@ -23,8 +23,12 @@ After `git pull`, if sign-in fails with "The database is out of date" (or `/api/
 your database was created before newer SQL files were added. Apply them without losing data:
 
 ```
-npm run db:migrate
+npm run db:update
 ```
+
+`db:update` runs `npm run db:migrate` (adds the missing tables, functions, triggers and indexes) and then
+`npm run seed -- --extras` (adds the demo admin `admin@devmatch.dev` and sample applications; safe to repeat).
+No data is deleted. Then restart `npm run dev`.
 
 This re-applies the re-runnable files (`db/04`, `db/07` to `db/11`) and checks that every required table, view,
 function, trigger and index exists. A brand new database does not need it.
