@@ -41,6 +41,18 @@ export async function POST(req: Request) {
   ]);
   if (repo.rowCount === 0) return Response.json({ error: "Repository not found" }, { status: 404 });
 
+  // Reject a duplicate of a still-active issue in the same repo (case-insensitive title).
+  const dup = await pool.query(
+    "SELECT 1 FROM issues WHERE repo_id = $1 AND status <> 'closed' AND lower(title) = lower($2)",
+    [repoId, title]
+  );
+  if (dup.rowCount) {
+    return Response.json(
+      { error: "An active issue with this title already exists in this repository" },
+      { status: 409 }
+    );
+  }
+
   const skills = await pool.query<{ name: string }>(
     "SELECT name FROM skills WHERE skill_id = ANY($1::int[]) ORDER BY name",
     [skillIds]
@@ -75,7 +87,7 @@ export async function POST(req: Request) {
     await client.query("COMMIT");
     return Response.json({ issue: { ...rows[0], skillIds } }, { status: 201 });
   } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(() => { });
     const err = e as PgError;
     if (err.code === "23514") {
       return Response.json({ error: "Invalid input (failed a database check)" }, { status: 400 });
