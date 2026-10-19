@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import ApplyButton from "../_components/ApplyButton";
 import { Search } from "@/components/Icons";
@@ -16,6 +16,7 @@ type Result = {
   in_keyword?: boolean;
 };
 type Mode = "hybrid" | "semantic" | "keyword";
+type Difficulty = "any" | "easy" | "medium" | "hard";
 
 const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "hybrid", label: "Hybrid", hint: "Keyword and meaning combined into one ranking" },
@@ -27,16 +28,29 @@ const EXAMPLES = ["make queries faster", "screen reader support", "run in a cont
 export default function SearchPage() {
   const [q, setQ] = useState("");
   const [mode, setMode] = useState<Mode>("hybrid");
+  const [difficulty, setDifficulty] = useState<Difficulty>("any");
+  const [skill, setSkill] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
   const [results, setResults] = useState<Result[] | null>(null);
   const [shownMode, setShownMode] = useState<Mode>("hybrid"); // mode the current results came from
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function run(query: string, m: Mode) {
+  useEffect(() => {
+    fetch("/api/skills")
+      .then((r) => (r.ok ? r.json() : { skills: [] }))
+      .then((d) => setSkills((d.skills as { name: string }[]).map((s) => s.name)))
+      .catch(() => setSkills([]));
+  }, []);
+
+  async function run(query: string, m: Mode, d: Difficulty, s: string) {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&mode=${m}`);
+      const qs = new URLSearchParams({ q: query, mode: m });
+      if (d !== "any") qs.set("difficulty", d);
+      if (s) qs.set("skill", s);
+      const res = await fetch(`/api/search?${qs}`);
       const data = await res.json();
       if (res.status === 401) {
         setError("Please log in to search.");
@@ -55,6 +69,9 @@ export default function SearchPage() {
     }
   }
 
+  const ready = q.trim().length >= 2;
+  const rerun = (m = mode, d = difficulty, s = skill) => ready && run(q.trim(), m, d, s);
+
   return (
     <main className="container">
       <div className="page-head">
@@ -66,7 +83,7 @@ export default function SearchPage() {
         className="form"
         onSubmit={(e) => {
           e.preventDefault();
-          if (q.trim().length >= 2) run(q.trim(), mode);
+          rerun();
         }}
       >
         <div className="searchbar">
@@ -85,7 +102,7 @@ export default function SearchPage() {
             options={MODES.map((m) => ({ value: m.id, label: m.label }))}
             onChange={(m) => {
               setMode(m);
-              if (q.trim().length >= 2) run(q.trim(), m);
+              rerun(m);
             }}
           />
           <button type="submit" className="btn-primary" disabled={loading}>
@@ -95,6 +112,37 @@ export default function SearchPage() {
         <p className="muted small" style={{ margin: 0 }}>
           {MODES.find((m) => m.id === mode)?.hint}
         </p>
+        <div className="filters" style={{ margin: 0 }}>
+          <Segmented
+            label="Difficulty"
+            value={difficulty}
+            options={[
+              { value: "any", label: "Any" },
+              { value: "easy", label: "Easy" },
+              { value: "medium", label: "Medium" },
+              { value: "hard", label: "Hard" },
+            ]}
+            onChange={(d) => {
+              setDifficulty(d);
+              rerun(mode, d);
+            }}
+          />
+          <select
+            aria-label="Skill"
+            value={skill}
+            onChange={(e) => {
+              setSkill(e.target.value);
+              rerun(mode, difficulty, e.target.value);
+            }}
+          >
+            <option value="">Any skill</option>
+            {skills.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
       </form>
 
       <div className="tags" style={{ marginBottom: "1.5rem" }}>
@@ -105,7 +153,7 @@ export default function SearchPage() {
             className="tag"
             onClick={() => {
               setQ(ex);
-              run(ex, mode);
+              run(ex, mode, difficulty, skill);
             }}
           >
             {ex}
@@ -128,7 +176,9 @@ export default function SearchPage() {
           <p>
             {shownMode === "keyword"
               ? "Keyword search needs the exact words. Try Semantic or Hybrid mode."
-              : "Try describing the work in different words."}
+              : difficulty !== "any" || skill
+                ? "Nothing matches these filters. Try loosening them."
+                : "Try describing the work in different words."}
           </p>
         </div>
       )}
