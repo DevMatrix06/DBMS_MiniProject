@@ -49,3 +49,26 @@ export const contributors = [
 ] as const;
 
 export const DEMO_PASSWORD = "password123";
+
+// ---- Extras: an admin plus sample activity so every role has something to look at in a demo.
+export const admin = { email: "admin@devmatch.dev" };
+
+export const sampleApplications = [
+  { github: "rohan-das", issue: "Add retry with backoff to HTTP source" },
+  { github: "rohan-das", issue: "GitHub Actions workflow for release builds" },
+  { github: "vikram-s", issue: "GitHub Actions workflow for release builds" },
+  { github: "vikram-s", issue: "Provide a minimal Dockerfile for the runner" },
+  { github: "asha-rao", issue: "Add pagination to the transactions endpoint" },
+  { github: "asha-rao", issue: "Speed up monthly report query" },
+  { github: "karthik-n", issue: "Dropdown menu is not keyboard accessible" },
+  { github: "meera-iyer", issue: "Handle missing values in the preprocessing pipeline" },
+  { github: "sneha-pillai", issue: "Add MongoDB index for note search by tag" },
+  { github: "sneha-pillai", issue: "Document how to self-host with Docker Compose" },
+];
+
+// One issue that has already gone through review: winner accepted, the others rejected, issue claimed.
+export const claimedExample = {
+  issue: "Write a tutorial notebook for churn prediction",
+  winner: "meera-iyer",
+  others: ["asha-rao"],
+};

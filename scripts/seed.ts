@@ -1,13 +1,65 @@
 // Usage: npm run seed          (fails if data already exists)
 //        npm run seed -- --reset (wipes users/repos/issues first)
-import { Pool } from "pg";
+//        npm run seed -- --extras (adds the admin and sample applications to an already seeded DB; safe to repeat)
+import pg from "pg";
 import bcrypt from "bcryptjs";
 import { embed, toVectorLiteral } from "../lib/embeddings.ts";
-import { contributors, issues, maintainer, repos, DEMO_PASSWORD } from "./seed-data.ts";
+import { admin, claimedExample, contributors, issues, maintainer, repos, sampleApplications, DEMO_PASSWORD } from "./seed-data.ts";
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
+// Safe to run more than once: every insert is skipped if it already exists.
+async function seedExtras(client: pg.PoolClient, hash: string) {
+  await client.query(
+    "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'admin') ON CONFLICT (email) DO NOTHING",
+    [admin.email, hash]
+  );
+
+  const apply = (github: string, title: string) =>
+    client.query(
+      `INSERT INTO applications (issue_id, contributor_id)
+       SELECT i.issue_id, c.contributor_id FROM issues i, contributors c
+       WHERE i.title = $2 AND i.status = 'open' AND c.github_username = $1
+       ON CONFLICT (issue_id, contributor_id) DO NOTHING`,
+      [github, title]
+    );
+
+  for (const a of sampleApplications) await apply(a.github, a.issue);
+
+  // Walk one issue through review, like the maintainer screen does.
+  const open = await client.query("SELECT issue_id FROM issues WHERE title = $1 AND status = 'open'", [claimedExample.issue]);
+  if (open.rows[0]) {
+    for (const g of [claimedExample.winner, ...claimedExample.others]) await apply(g, claimedExample.issue);
+    const issueId = open.rows[0].issue_id;
+    await client.query(
+      `UPDATE applications SET status = 'accepted'
+       WHERE issue_id = $1 AND contributor_id = (SELECT contributor_id FROM contributors WHERE github_username = $2)`,
+      [issueId, claimedExample.winner]
+    );
+    await client.query("UPDATE applications SET status = 'rejected' WHERE issue_id = $1 AND status = 'pending'", [issueId]);
+    await client.query("UPDATE issues SET status = 'claimed' WHERE issue_id = $1", [issueId]); // trigger writes the audit row
+  }
+}
 
 async function main() {
+  if (process.argv.includes("--extras")) {
+    // Add the admin and sample applications to a database that is already seeded.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await seedExtras(client, await bcrypt.hash(DEMO_PASSWORD, 10));
+      await client.query("COMMIT");
+      console.log(`Extras added. Admin login: ${admin.email} / "${DEMO_PASSWORD}"`);
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+      await pool.end();
+    }
+    return;
+  }
+
   if (process.argv.includes("--reset")) {
     // CASCADE clears contributors, repositories, issues and everything hanging off them; skills stay.
     await pool.query("TRUNCATE users RESTART IDENTITY CASCADE");
@@ -88,9 +140,11 @@ async function main() {
       }
     }
 
+    await seedExtras(client, hash);
+
     await client.query("COMMIT");
     console.log(`Seeded ${repos.length} repos, ${issues.length} issues, ${contributors.length} contributors.`);
-    console.log(`Demo logins: maintainer@devmatch.dev or any contributor email, password "${DEMO_PASSWORD}"`);
+    console.log(`Demo logins (password "${DEMO_PASSWORD}"): ${admin.email}, ${maintainer.email}, or any contributor email`);
   } catch (e) {
     await client.query("ROLLBACK");
     throw e;

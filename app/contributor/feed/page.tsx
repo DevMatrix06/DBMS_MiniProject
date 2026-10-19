@@ -17,7 +17,16 @@ type Match = {
   application_status: string | null;
 };
 
-async function Feed() {
+const PAGE_SIZE = 10;
+const MAX_PAGE = 20;
+
+// searchParams is a runtime API, so it is only read here, inside the Suspense boundary.
+async function Feed({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = await searchParams;
+  const raw = Array.isArray(sp.page) ? sp.page[0] : sp.page;
+  const page = Math.min(Math.max(Number.parseInt(raw ?? "1", 10) || 1, 1), MAX_PAGE);
+  const offset = (page - 1) * PAGE_SIZE;
+
   const session = await getSession();
   if (!session) redirect("/login");
   if (session.role !== "contributor") {
@@ -52,18 +61,30 @@ async function Feed() {
                   JOIN skills s ON s.skill_id = isk.skill_id
                   JOIN contributor_skills cs ON cs.skill_id = s.skill_id AND cs.contributor_id = $1
                   WHERE isk.issue_id = m.issue_id ORDER BY s.name) AS matched
-     FROM match_issues($1, 12) m
+     FROM match_issues($1, $2) m
      JOIN issues i ON i.issue_id = m.issue_id
      LEFT JOIN applications a ON a.issue_id = m.issue_id AND a.contributor_id = $1
-     ORDER BY m.similarity DESC`,
-    [contributor.contributor_id]
+     ORDER BY m.similarity DESC
+     OFFSET $3 LIMIT $4`,
+    // Ask for one row more than a page so we know whether a next page exists.
+    [contributor.contributor_id, offset + PAGE_SIZE + 1, offset, PAGE_SIZE + 1]
   );
 
-  if (rows.length === 0) return <p className="muted">No open issues to recommend right now.</p>;
+  const hasNext = rows.length > PAGE_SIZE;
+  const shown = rows.slice(0, PAGE_SIZE);
+
+  if (shown.length === 0) {
+    return (
+      <p className="muted">
+        {page === 1 ? "No open issues to recommend right now." : "No more recommendations."}{" "}
+        {page > 1 && <Link href="/contributor/feed">Back to the first page</Link>}
+      </p>
+    );
+  }
 
   return (
     <>
-      {rows.map((m) => (
+      {shown.map((m) => (
         <article className="card" key={m.issue_id}>
           <div className="card-head">
             <span className="card-title">{m.title}</span>
@@ -88,11 +109,17 @@ async function Feed() {
           </div>
         </article>
       ))}
+
+      <nav className="row" style={{ justifyContent: "space-between", marginTop: "1rem" }}>
+        {page > 1 ? <Link href={`/contributor/feed?page=${page - 1}`}>&larr; Previous</Link> : <span />}
+        <span className="muted">Page {page}</span>
+        {hasNext ? <Link href={`/contributor/feed?page=${page + 1}`}>Next &rarr;</Link> : <span />}
+      </nav>
     </>
   );
 }
 
-export default function FeedPage() {
+export default function FeedPage(props: PageProps<"/contributor/feed">) {
   return (
     <main className="container">
       <h1>Recommended for you</h1>
@@ -101,7 +128,7 @@ export default function FeedPage() {
         already have.
       </p>
       <Suspense fallback={<p className="muted">Finding matches...</p>}>
-        <Feed />
+        <Feed searchParams={props.searchParams} />
       </Suspense>
     </main>
   );

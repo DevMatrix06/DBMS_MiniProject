@@ -4,13 +4,22 @@ import { useState } from "react";
 import Link from "next/link";
 import ApplyButton from "../_components/ApplyButton";
 
-type Result = { issue_id: number; title: string; repo_name: string; difficulty: string; score: number };
+type Result = {
+  issue_id: number;
+  title: string;
+  repo_name: string;
+  difficulty: string;
+  score: number;
+  in_semantic?: boolean; // hybrid mode only
+  in_keyword?: boolean;
+};
+type Mode = "hybrid" | "semantic" | "keyword";
 
 const EXAMPLES = ["make queries faster", "screen reader support", "run in a container", "handle missing data"];
 
 export default function SearchPage() {
   const [q, setQ] = useState("");
-  const [mode, setMode] = useState<"semantic" | "keyword">("semantic");
+  const [mode, setMode] = useState<Mode>("hybrid");
   const [results, setResults] = useState<Result[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,8 +48,8 @@ export default function SearchPage() {
     <main className="container">
       <h1>Search issues</h1>
       <p className="muted">
-        Compare <b>semantic</b> search (meaning, via embeddings) with <b>keyword</b> search (exact words,
-        PostgreSQL full-text).
+        <b>Hybrid</b> combines <b>semantic</b> search (meaning, via embeddings) with <b>keyword</b> search (exact words,
+        PostgreSQL full-text). Switch modes to compare them.
       </p>
 
       <form
@@ -61,6 +70,7 @@ export default function SearchPage() {
             }}
             style={{ width: "auto" }}
           >
+            <option value="hybrid">Hybrid (keyword + semantic)</option>
             <option value="semantic">Semantic (pgvector)</option>
             <option value="keyword">Keyword (full-text)</option>
           </select>
@@ -103,10 +113,17 @@ export default function SearchPage() {
         <article className="card" key={r.issue_id}>
           <div className="card-head">
             <span className="card-title">{r.title}</span>
-            <span className="score">{r.score.toFixed(2)}</span>
+            <span className="score">{mode === "hybrid" ? "" : r.score.toFixed(2)}</span>
           </div>
           <div className="muted">
             {r.repo_name} · <span className={`diff-${r.difficulty}`}>{r.difficulty}</span>
+            {mode === "hybrid" && (
+              <>
+                {" · "}
+                {r.in_semantic && <span className="tag tag-match">semantic</span>}{" "}
+                {r.in_keyword && <span className="tag tag-match">keyword</span>}
+              </>
+            )}
           </div>
           <div style={{ marginTop: "0.6rem" }}>
             <ApplyButton issueId={r.issue_id} initialStatus={null} />
