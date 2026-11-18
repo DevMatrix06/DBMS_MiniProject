@@ -61,7 +61,7 @@ A few tests call the Gemini embeddings API (profile save, issue creation, semant
 
 ## Bugs the tests and reviews found
 - **AP5 / D2 (first run):** applying to a non-existent issue returned 409 "not open (status: missing)" instead of 404,
-  because the trigger ran before the foreign key check. Fixed in `db/07_application_rules.sql`: for an unknown issue the
+  because the trigger ran before the foreign key check. Fixed in `db/07_application_rules_max5_open_only.sql`: for an unknown issue the
   trigger now lets the foreign key reject the row.
 - **Fresh database failed to start:** found while reviewing the maintainer pull request. `docker-compose.yml` mounted every
   file in `db/` as an init script, so the demo script `06_alter_demo.sql` ran on an empty database and failed. Fixed by

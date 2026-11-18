@@ -82,7 +82,7 @@ WHERE total_issues > 0
 ORDER BY open_pct DESC, total_issues DESC;
 
 -- Q9 [vector search + JOIN] Top 5 open issues semantically closest to contributor 1
---    (cosine similarity from match_issues() in 03_logic.sql), with the skills each issue needs.
+--    (cosine similarity from match_issues() in 03_logic_status_audit_log.sql), with the skills each issue needs.
 SELECT m.title, m.repo_name, m.difficulty, ROUND(m.similarity::numeric, 3) AS similarity, v.skills
 FROM match_issues(1, 5) m
 JOIN v_open_issues v ON v.issue_id = m.issue_id

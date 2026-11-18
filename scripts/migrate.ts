@@ -11,8 +11,8 @@ import { REQUIRED_OBJECTS, missingSchemaObjects } from "../lib/schema-check.ts";
 
 const FILES = [
   "04_views.sql",
-  "07_application_rules.sql",
-  "08_close_issue_rule.sql",
+  "07_application_rules_max5_open_only.sql",
+  "08_close_issue_rule_reject_pending.sql",
   "09_hybrid_search.sql",
   "10_login_attempts.sql",
   "11_filter_indexes.sql",

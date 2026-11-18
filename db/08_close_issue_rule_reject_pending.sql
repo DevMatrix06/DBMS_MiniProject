@@ -1,6 +1,6 @@
 -- When an issue is closed, its still-pending applications can never be answered, so reject them.
 -- Runs on first start (see docker-compose.yml). Apply to an existing DB with:
---   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/08_close_issue_rule.sql
+--   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/08_close_issue_rule_reject_pending.sql
 -- Accepted applications are kept as they are (the work may already have been done).
 
 CREATE OR REPLACE FUNCTION reject_pending_on_close() RETURNS trigger

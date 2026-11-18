@@ -79,7 +79,7 @@ CREATE TABLE applications (
     UNIQUE (issue_id, contributor_id)
 );
 
--- ---------- Audit log (filled by trigger in 03_logic.sql) ----------
+-- ---------- Audit log (filled by trigger in 03_logic_status_audit_log.sql) ----------
 CREATE TABLE issue_status_log (
     log_id      SERIAL PRIMARY KEY,
     issue_id    INT NOT NULL REFERENCES issues(issue_id) ON DELETE CASCADE,

@@ -56,11 +56,11 @@ If something goes wrong live: `/api/health` tells you whether the database and s
 | CREATE TABLE, keys, CHECK, UNIQUE, indexes | `db/01_schema.sql` | `\d issues` |
 | ALTER, DROP | `db/06_alter_demo.sql` | Run it: it adds and removes a column, constraint, index and table inside a rolled-back transaction |
 | Views | `db/04_views.sql` | `SELECT * FROM v_skill_demand;` |
-| Trigger: audit | `db/03_logic.sql` | Accept an applicant, then `SELECT * FROM issue_status_log;` |
-| Trigger: application rules | `db/07_application_rules.sql` | Apply to a claimed issue in psql |
-| Trigger: close rule | `db/08_close_issue_rule.sql` | Close an issue that has pending applications; they become `rejected` |
+| Trigger: audit | `db/03_logic_status_audit_log.sql` | Accept an applicant, then `SELECT * FROM issue_status_log;` |
+| Trigger: application rules | `db/07_application_rules_max5_open_only.sql` | Apply to a claimed issue in psql |
+| Trigger: close rule | `db/08_close_issue_rule_reject_pending.sql` | Close an issue that has pending applications; they become `rejected` |
 | Procedure: accept applicant | `db/13_accept_procedure.sql` | `CALL accept_application(<id>);` inside `BEGIN ... ROLLBACK;`, then check `applications` and `issue_status_log` |
-| Function: vector ranking | `db/03_logic.sql` | `SELECT * FROM match_issues(1, 5);` |
+| Function: vector ranking | `db/03_logic_status_audit_log.sql` | `SELECT * FROM match_issues(1, 5);` |
 | Function: hybrid search | `db/09_hybrid_search.sql` | Search in Hybrid mode; read the function |
 | Full-text search | `db/01_schema.sql` (generated `search_tsv`, GIN) | Keyword mode |
 | Vector index | `db/01_schema.sql` (HNSW) | `EXPLAIN` on an `ORDER BY embedding <=> ...` query |
@@ -129,7 +129,7 @@ If something goes wrong live: `/api/health` tells you whether the database and s
 | Request | Steps |
 |---|---|
 | Add a column to issues and show it | `ALTER TABLE issues ADD COLUMN estimated_hours INT CHECK (estimated_hours > 0);` in psql (also add it to `db/01_schema.sql`); add the field to `NewIssueForm.tsx` and `app/api/maintainer/issues/route.ts` (INSERT); show it in `app/contributor/feed/page.tsx` (SELECT and JSX) |
-| Change the pending limit from 5 to 3 | Edit `v_pending >= 5` in `db/07_application_rules.sql`, run `npm run db:migrate`; update the "5" in the UI text |
+| Change the pending limit from 5 to 3 | Edit `v_pending >= 5` in `db/07_application_rules_max5_open_only.sql`, run `npm run db:migrate`; update the "5" in the UI text |
 | Add a new CHECK or constraint | `ALTER TABLE contributors ADD CONSTRAINT bio_len CHECK (bio IS NULL OR length(bio) <= 1000);` then show an insert failing |
 | Use a different similarity metric | In SQL replace `<=>` (cosine) with `<->` (Euclidean) or `<#>` (negative inner product) and create the matching index with `vector_l2_ops` or `vector_ip_ops` |
 | Prove an index is used | `EXPLAIN ANALYZE SELECT ... FROM issues WHERE status = 'open' AND difficulty = 'easy';` (see `idx_issues_status_difficulty`) |

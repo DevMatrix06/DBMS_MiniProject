@@ -1,6 +1,6 @@
 -- DevMatch: ALL DDL in one file (tables, indexes, views, functions, procedure, triggers).
 -- Order matters. Run on an empty database:  psql -U devmatch -d devmatch -f db/00_all_ddl.sql
--- Sources: 01_schema.sql, 03_logic.sql, 04_views.sql, 07_application_rules.sql, 08_close_issue_rule.sql, 09_hybrid_search.sql, 10_login_attempts.sql, 11_filter_indexes.sql, 13_accept_procedure.sql
+-- Sources: 01_schema.sql, 03_logic_status_audit_log.sql, 04_views.sql, 07_application_rules_max5_open_only.sql, 08_close_issue_rule_reject_pending.sql, 09_hybrid_search.sql, 10_login_attempts.sql, 11_filter_indexes.sql, 13_accept_procedure.sql
 
 -- ======================================== 01_schema.sql ========================================
 -- DevMatch schema (PostgreSQL 16 + pgvector)
@@ -84,7 +84,7 @@ CREATE TABLE applications (
     UNIQUE (issue_id, contributor_id)
 );
 
--- ---------- Audit log (filled by trigger in 03_logic.sql) ----------
+-- ---------- Audit log (filled by trigger in 03_logic_status_audit_log.sql) ----------
 CREATE TABLE issue_status_log (
     log_id      SERIAL PRIMARY KEY,
     issue_id    INT NOT NULL REFERENCES issues(issue_id) ON DELETE CASCADE,
@@ -102,7 +102,7 @@ CREATE INDEX idx_contrib_embedding    ON contributors USING hnsw (profile_embedd
 CREATE INDEX idx_applications_contrib ON applications(contributor_id);
 
 
--- ======================================== 03_logic.sql ========================================
+-- ======================================== 03_logic_status_audit_log.sql ========================================
 -- Trigger: audit every issue status change
 CREATE OR REPLACE FUNCTION log_issue_status_change() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -190,12 +190,12 @@ LEFT JOIN issues i ON i.repo_id = r.repo_id
 GROUP BY r.repo_id;
 
 
--- ======================================== 07_application_rules.sql ========================================
+-- ======================================== 07_application_rules_max5_open_only.sql ========================================
 -- Application rules enforced in the database, so no code path can bypass them:
 --   1. you can only apply to an issue that is open
 --   2. a contributor can have at most 5 pending applications at once
 -- Runs on first start (see docker-compose.yml). Apply to an existing DB with:
---   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/07_application_rules.sql
+--   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/07_application_rules_max5_open_only.sql
 
 CREATE OR REPLACE FUNCTION enforce_application_rules() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -240,10 +240,10 @@ BEFORE INSERT OR UPDATE OF status ON applications
 FOR EACH ROW EXECUTE FUNCTION enforce_application_rules();
 
 
--- ======================================== 08_close_issue_rule.sql ========================================
+-- ======================================== 08_close_issue_rule_reject_pending.sql ========================================
 -- When an issue is closed, its still-pending applications can never be answered, so reject them.
 -- Runs on first start (see docker-compose.yml). Apply to an existing DB with:
---   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/08_close_issue_rule.sql
+--   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/08_close_issue_rule_reject_pending.sql
 -- Accepted applications are kept as they are (the work may already have been done).
 
 CREATE OR REPLACE FUNCTION reject_pending_on_close() RETURNS trigger

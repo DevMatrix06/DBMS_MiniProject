@@ -2,7 +2,7 @@
 --   1. you can only apply to an issue that is open
 --   2. a contributor can have at most 5 pending applications at once
 -- Runs on first start (see docker-compose.yml). Apply to an existing DB with:
---   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/07_application_rules.sql
+--   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/07_application_rules_max5_open_only.sql
 
 CREATE OR REPLACE FUNCTION enforce_application_rules() RETURNS trigger
 LANGUAGE plpgsql AS $$

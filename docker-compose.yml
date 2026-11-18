@@ -14,10 +14,10 @@ services:
       # demo scripts (06 fails on an empty database), so they must not be mounted here.
       - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./db/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
-      - ./db/03_logic.sql:/docker-entrypoint-initdb.d/03_logic.sql:ro
+      - ./db/03_logic_status_audit_log.sql:/docker-entrypoint-initdb.d/03_logic_status_audit_log.sql:ro
       - ./db/04_views.sql:/docker-entrypoint-initdb.d/04_views.sql:ro
-      - ./db/07_application_rules.sql:/docker-entrypoint-initdb.d/07_application_rules.sql:ro
-      - ./db/08_close_issue_rule.sql:/docker-entrypoint-initdb.d/08_close_issue_rule.sql:ro
+      - ./db/07_application_rules_max5_open_only.sql:/docker-entrypoint-initdb.d/07_application_rules_max5_open_only.sql:ro
+      - ./db/08_close_issue_rule_reject_pending.sql:/docker-entrypoint-initdb.d/08_close_issue_rule_reject_pending.sql:ro
       - ./db/09_hybrid_search.sql:/docker-entrypoint-initdb.d/09_hybrid_search.sql:ro
       - ./db/10_login_attempts.sql:/docker-entrypoint-initdb.d/10_login_attempts.sql:ro
       - ./db/11_filter_indexes.sql:/docker-entrypoint-initdb.d/11_filter_indexes.sql:ro
