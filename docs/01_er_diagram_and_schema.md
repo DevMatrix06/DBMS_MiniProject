@@ -162,7 +162,7 @@ Only failures are stored. Five failures for one email within 15 minutes block fu
 | v_skill_demand | Per skill: open issues needing it and contributors having it (LEFT JOINs) |
 | v_repo_stats | Per repository: total, open, claimed and closed issue counts |
 
-## 5. Triggers and stored functions
+## 5. Triggers, stored functions and procedure
 
 | Object | File | Type | What it does |
 |---|---|---|---|
@@ -171,6 +171,7 @@ Only failures are stored. Five failures for one email within 15 minutes block fu
 | `trg_reject_pending_on_close` / `reject_pending_on_close()` | `db/08_close_issue_rule.sql` | AFTER UPDATE OF status trigger on `issues` (only when it becomes `closed`) | Rejects the still-pending applications of the closed issue; accepted ones are kept |
 | `match_issues(contributor_id, limit)` | `db/03_logic.sql` | SQL function (STABLE) | Open issues ordered by cosine distance to the contributor's profile embedding |
 | `hybrid_search(query, embedding, limit, difficulty, skill)` | `db/09_hybrid_search.sql` | SQL function (STABLE) | Top 30 by full-text rank and top 30 by vector distance (filters applied before ranking), fused with Reciprocal Rank Fusion: `score = 1/(60 + rank_semantic) + 1/(60 + rank_keyword)` |
+| `accept_application(application_id)` | `db/13_accept_procedure.sql` | Stored procedure (`CALL`) | Accepts one application in a single call: locks the issue (`FOR UPDATE`), marks the application `accepted`, rejects the other pending applications for that issue, and sets the issue to `claimed` (the audit trigger then logs it). Raises an error if the application is missing, not pending, or the issue is not open |
 
 ## 6. Deletion rules
 

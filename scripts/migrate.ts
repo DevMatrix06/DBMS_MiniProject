@@ -16,6 +16,7 @@ const FILES = [
   "09_hybrid_search.sql",
   "10_login_attempts.sql",
   "11_filter_indexes.sql",
+  "13_accept_procedure.sql",
 ];
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });

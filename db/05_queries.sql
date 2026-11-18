@@ -93,3 +93,38 @@ SELECT old_status, new_status, COUNT(*) AS times, MAX(changed_at) AS last_change
 FROM issue_status_log
 GROUP BY old_status, new_status
 ORDER BY times DESC;
+
+-- Q11 [WITH RECURSIVE] Issues posted per day for the 14 days up to the newest issue, including days with none.
+--     The recursive part builds the calendar one day at a time; LEFT JOIN keeps empty days (count 0).
+WITH RECURSIVE days(day) AS (
+    SELECT (SELECT max(created_at)::date FROM issues) - 13
+    UNION ALL
+    SELECT day + 1 FROM days WHERE day < (SELECT max(created_at)::date FROM issues)
+)
+SELECT d.day, COUNT(i.issue_id) AS issues_posted
+FROM days d
+LEFT JOIN issues i ON i.created_at::date = d.day
+GROUP BY d.day
+ORDER BY d.day;
+
+-- Q12 [CTE, LEFT JOIN, COALESCE] Each contributor's workload against the limit of 5 pending applications.
+--     Two named CTEs are computed once and then joined; contributors with no applications show 0.
+WITH pending AS (
+    SELECT contributor_id, COUNT(*) AS pending_apps
+    FROM applications
+    WHERE status = 'pending'
+    GROUP BY contributor_id
+), skill_cnt AS (
+    SELECT contributor_id, COUNT(*) AS skills
+    FROM contributor_skills
+    GROUP BY contributor_id
+)
+SELECT c.display_name,
+       c.experience_level,
+       COALESCE(sc.skills, 0)       AS skills,
+       COALESCE(p.pending_apps, 0)  AS pending_apps,
+       5 - COALESCE(p.pending_apps, 0) AS slots_left
+FROM contributors c
+LEFT JOIN pending p     ON p.contributor_id = c.contributor_id
+LEFT JOIN skill_cnt sc  ON sc.contributor_id = c.contributor_id
+ORDER BY slots_left, c.display_name;

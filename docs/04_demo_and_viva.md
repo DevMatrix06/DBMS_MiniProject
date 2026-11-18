@@ -59,6 +59,7 @@ If something goes wrong live: `/api/health` tells you whether the database and s
 | Trigger: audit | `db/03_logic.sql` | Accept an applicant, then `SELECT * FROM issue_status_log;` |
 | Trigger: application rules | `db/07_application_rules.sql` | Apply to a claimed issue in psql |
 | Trigger: close rule | `db/08_close_issue_rule.sql` | Close an issue that has pending applications; they become `rejected` |
+| Procedure: accept applicant | `db/13_accept_procedure.sql` | `CALL accept_application(<id>);` inside `BEGIN ... ROLLBACK;`, then check `applications` and `issue_status_log` |
 | Function: vector ranking | `db/03_logic.sql` | `SELECT * FROM match_issues(1, 5);` |
 | Function: hybrid search | `db/09_hybrid_search.sql` | Search in Hybrid mode; read the function |
 | Full-text search | `db/01_schema.sql` (generated `search_tsv`, GIN) | Keyword mode |

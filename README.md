@@ -11,7 +11,7 @@ PostgreSQL full-text search (hybrid search).
 - **Contributor:** profile with skills, ranked feed with difficulty and skill filters, keyword / semantic / hybrid search, apply and withdraw (max 5 pending), application tracking, change password, delete account
 - **Maintainer:** repositories and issues (embedded on create or edit), applicant review with accept / reject, delete repository
 - **Admin:** statistics from SQL views
-- **Database:** 3NF schema with constraints, 3 triggers, 2 search functions, 3 views, HNSW and GIN indexes, cascading deletes
+- **Database:** 3NF schema with constraints, 3 triggers, 2 search functions, 1 stored procedure, 3 views, HNSW and GIN indexes, cascading deletes
 - **Security:** bcrypt, JWT in an httpOnly cookie, role checks on every API, login rate limiting, secrets only in `.env`
 - **Quality:** 40 automated integration tests; full documentation in `docs/`
 
@@ -23,7 +23,7 @@ PostgreSQL full-text search (hybrid search).
 ## Setup
 1. Install Node 20+ and Docker Desktop.
 2. Copy `.env.example` to `.env` and set the passwords/secrets.
-3. `docker compose up -d` creates the DB and runs `db/01` to `db/04` and `db/07` to `db/11` (schema, seed, logic, views, application rules, close rule, hybrid search, login attempts, filter indexes) on first start. `db/05_queries.sql` and `db/06_alter_demo.sql` are demo scripts to run by hand (see `docs/`).
+3. `docker compose up -d` creates the DB and runs `db/01` to `db/04`, `db/07` to `db/11` and `db/13` (schema, seed, logic, views, application rules, close rule, hybrid search, login attempts, filter indexes, accept procedure) on first start. `db/05_queries.sql` and `db/06_alter_demo.sql` are demo scripts to run by hand (see `docs/`).
    To re-run the SQL from scratch: `docker compose down -v` then `docker compose up -d`.
 4. `npm install`
 5. Put your Gemini key in `EMBEDDING_API_KEY` (.env), then `npm run seed` to load demo repos, issues and contributors with embeddings (`npm run seed -- --reset` to redo). Demo password for all seeded users: `password123`.
@@ -60,7 +60,7 @@ npm run db:update
 `npm run seed -- --extras` (adds the demo admin `admin@devmatch.dev` and sample applications; safe to repeat).
 No data is deleted. Then restart `npm run dev`.
 
-`db:migrate` re-applies the re-runnable files (`db/04`, `db/07` to `db/11`) and checks that every required table, view,
+`db:migrate` re-applies the re-runnable files (`db/04`, `db/07` to `db/11`, `db/13`) and checks that every required table, view,
 function, trigger and index exists. A brand new database does not need it.
 
 ## Documentation

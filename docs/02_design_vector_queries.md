@@ -53,7 +53,7 @@ Queries inside the application:
 | Dashboards | Per-role counts built from scalar subqueries | Aggregates, subqueries |
 | Admin stats | The three views plus `GROUP BY` summaries | Views, GROUP BY |
 
-Other SQL artefacts: `db/04_views.sql` (3 views), `db/06_alter_demo.sql` (ALTER TABLE ADD COLUMN / ADD CONSTRAINT / ALTER COLUMN / RENAME, CREATE INDEX, then DROP TABLE / INDEX / CONSTRAINT / COLUMN; runs in a transaction that is rolled back), and the rule files `db/07` to `db/11`.
+Other SQL artefacts: `db/04_views.sql` (3 views), `db/06_alter_demo.sql` (ALTER TABLE ADD COLUMN / ADD CONSTRAINT / ALTER COLUMN / RENAME, CREATE INDEX, then DROP TABLE / INDEX / CONSTRAINT / COLUMN; runs in a transaction that is rolled back), the rule files `db/07` to `db/11`, and the stored procedure `db/13_accept_procedure.sql`. `db/05_queries.sql` also has a `WITH RECURSIVE` query (Q11) and a multi-CTE query (Q12).
 
 ## 4. System architecture
 
