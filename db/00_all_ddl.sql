@@ -1,6 +1,6 @@
--- DevMatch: ALL DDL in one file (tables, indexes, views, functions, procedure, triggers).
+-- DevMatch: ALL DDL in one file (tables, indexes, views, functions, procedure, triggers, app role).
 -- Order matters. Run on an empty database:  psql -U devmatch -d devmatch -f db/00_all_ddl.sql
--- Sources: 01_schema.sql, 03_logic_status_audit_log.sql, 04_views.sql, 07_application_rules_max5_open_only.sql, 08_close_issue_rule_reject_pending.sql, 09_hybrid_search.sql, 10_login_attempts.sql, 11_filter_indexes.sql, 13_accept_procedure.sql
+-- Sources: 01_schema.sql, 03_logic_status_audit_log.sql, 04_views.sql, 07_application_rules_max5_open_only.sql, 08_close_issue_rule_reject_pending.sql, 09_hybrid_search.sql, 10_login_attempts.sql, 11_filter_indexes.sql, 13_accept_procedure.sql, 14_app_role.sql
 
 -- ======================================== 01_schema.sql ========================================
 -- DevMatch schema (PostgreSQL 16 + pgvector)
@@ -388,5 +388,29 @@ BEGIN
     UPDATE issues SET status = 'claimed' WHERE issue_id = v_issue_id;
 END;
 $$;
+
+
+-- ======================================== 14_app_role.sql ========================================
+-- Least-privilege login for the web app. The app server connects as dm_app (APP_DATABASE_URL in .env)
+-- instead of the owner. It can read and write data but cannot change the schema or create users.
+-- Seed, migrate and the tests still use the owner (DATABASE_URL). Safe to re-run: grants are re-applied,
+-- so tables added later are covered too. Apply to an existing DB with:
+--   docker exec -i devmatch-db psql -U devmatch -d devmatch < db/14_app_role.sql
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dm_app') THEN
+        CREATE ROLE dm_app WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE
+               CONNECTION LIMIT 20 PASSWORD 'app_pass_123';   -- demo password, change it for real use
+    END IF;
+    EXECUTE format('GRANT CONNECT ON DATABASE %I TO dm_app', current_database());
+END
+$$;
+
+ALTER ROLE dm_app VALID UNTIL '2027-12-31';
+
+GRANT USAGE ON SCHEMA public TO dm_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO dm_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO dm_app;
 
 

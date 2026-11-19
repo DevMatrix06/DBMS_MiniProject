@@ -33,6 +33,12 @@ export default function ProfileForm(props: {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [skills, setSkills] = useState<Skill[]>(props.allSkills);
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newCategory, setNewCategory] = useState("other");
+  const [newMsg, setNewMsg] = useState("");
+  const [newBusy, setNewBusy] = useState(false);
 
   function toggle(id: number) {
     const next = new Map(picked);
@@ -40,6 +46,41 @@ export default function ProfileForm(props: {
     else next.set(id, 3);
     setPicked(next);
     setSaved(false);
+  }
+
+  // Adds a skill that is not in the list yet, then selects it. A duplicate just selects the existing one.
+  async function addSkill() {
+    setNewMsg("");
+    if (!newName.trim()) {
+      setNewMsg("Type a skill name");
+      return;
+    }
+    setNewBusy(true);
+    try {
+      const res = await fetch("/api/skills", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName, category: newCategory }),
+      });
+      const data = await res.json().catch(() => null);
+      const skill: Skill | undefined = data?.skill;
+      if ((res.ok || res.status === 409) && skill) {
+        setSkills((list) =>
+          list.some((x) => x.skill_id === skill.skill_id)
+            ? list
+            : [...list, skill].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+        );
+        setPicked((p) => (p.has(skill.skill_id) ? p : new Map(p).set(skill.skill_id, 3)));
+        setSaved(false);
+        setNewName("");
+        setNewMsg(res.ok ? `Added ${skill.name}. Set its level and save your profile.` : `${skill.name} already exists. Selected it.`);
+      } else {
+        setNewMsg(data?.error ?? "Could not add skill");
+      }
+    } catch {
+      setNewMsg("Cannot reach the server. Is the dev server running?");
+    }
+    setNewBusy(false);
   }
 
   async function save(e: React.FormEvent) {
@@ -71,7 +112,7 @@ export default function ProfileForm(props: {
 
   // Group skills by category, keeping the order the database returned them in.
   const groups = new Map<string, Skill[]>();
-  for (const s of props.allSkills) groups.set(s.category, [...(groups.get(s.category) ?? []), s]);
+  for (const s of skills) groups.set(s.category, [...(groups.get(s.category) ?? []), s]);
 
   return (
     <form className="form stagger" onSubmit={save}>
@@ -113,6 +154,49 @@ export default function ProfileForm(props: {
       <section className="card">
         <h2>Skills</h2>
         <p className="muted small">Click a skill to add it, then set how strong you are (1 to 5 dots).</p>
+        <div style={{ marginTop: "0.75rem" }}>
+          {!adding ? (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAdding(true)}>
+              + New skill
+            </button>
+          ) : (
+            <div className="row" style={{ flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addSkill();
+                  }
+                }}
+                placeholder="Skill name, e.g. Kubernetes"
+                maxLength={40}
+                aria-label="New skill name"
+                style={{ maxWidth: "15rem" }}
+              />
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                aria-label="New skill category"
+                style={{ width: "10rem" }}
+              >
+                {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="btn btn-primary btn-sm" onClick={addSkill} disabled={newBusy}>
+                {newBusy ? "Adding..." : "Add skill"}
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setAdding(false); setNewMsg(""); }}>
+                Close
+              </button>
+            </div>
+          )}
+          {newMsg && <p className="muted small" style={{ marginTop: "0.5rem" }}>{newMsg}</p>}
+        </div>
         <div style={{ marginTop: "1rem" }}>
           {[...groups].map(([category, skills]) => (
             <div className="skill-group" key={category}>
